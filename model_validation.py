@@ -17,19 +17,22 @@ targetcols = ['aromatic', 'hydrocarbon', 'carboxylic_acid',
        'sulfur_bearing_compound', 'alcohol', 'other_oxygen_bearing_compound',
        'mineral']
 
-train_ind, val_ind = train_test_split(labels.sample_number, test_size=0.35, shuffle=True, random_state=42)
+train_ind, val_ind = train_test_split(labels.sample_number, test_size=0.3, shuffle=True, random_state=42)
+
+val = train[train.sample_number.isin(val_ind)].sort_values("sample_number").reset_index(drop=True)
+train = train[train.sample_number.isin(train_ind)].sort_values("sample_number").reset_index(drop=True)
 
 train_labels = labels.iloc[train_ind].sort_values("sample_number").reset_index(drop=True)
 val_labels = labels.iloc[val_ind].sort_values("sample_number").reset_index(drop=True)
 
-train_min = pd.pivot_table(train[train.sample_number.isin(train_ind)], index=['sample_number','mass'], columns='time_id', values='intensity', aggfunc='min').fillna(0)
-val_min = pd.pivot_table(train[train.sample_number.isin(val_ind)], index=['sample_number','mass'], columns='time_id', values='intensity', aggfunc='min').fillna(0)
+train_min = pd.pivot_table(train, index=['sample_number','mass'], columns='time_id', values='intensity', aggfunc='min')
+val_min = pd.pivot_table(val, index=['sample_number','mass'], columns='time_id', values='intensity', aggfunc='min')
 
-val = pd.pivot_table(train[train.sample_number.isin(val_ind)], index=['sample_number','mass'], columns='time_id', values='intensity', aggfunc='mean')
-train = pd.pivot_table(train[train.sample_number.isin(train_ind)], index=['sample_number','mass'], columns='time_id', values='intensity', aggfunc='mean')
+val = pd.pivot_table(val, index=['sample_number','mass'], columns='time_id', values='intensity', aggfunc='mean')
+train = pd.pivot_table(train, index=['sample_number','mass'], columns='time_id', values='intensity', aggfunc='mean')
 
-train = train - train_min
-val = val - val_min
+train = train - train_min.min(axis=1).values.reshape((-1,1))
+val = val - val_min.min(axis=1).values.reshape((-1,1))
 
 TIMESTEPS = train.shape[1]
 gc.collect()
@@ -41,17 +44,16 @@ for c in train.columns:
 def cnn():
     inp = tf.keras.layers.Input(shape=(TIMESTEPS, 237))
 
-    c1 = tf.keras.layers.Conv1D(50, 3, strides=1, dilation_rate=2 ** 0, padding='same')(inp)
-    c2 = tf.keras.layers.Conv1D(50, 3, strides=1, dilation_rate=2 ** 1, padding='same')(inp)
-    c3 = tf.keras.layers.Conv1D(50, 3, strides=1, dilation_rate=2 ** 2, padding='same')(inp)
-    c4 = tf.keras.layers.Conv1D(50, 3, strides=1, dilation_rate=2 ** 3, padding='same')(inp)
-    c5 = tf.keras.layers.Conv1D(50, 3, strides=1, dilation_rate=2 ** 4, padding='same')(inp)
-
+    c1 = tf.keras.layers.Conv1D(50, 2, strides=1, dilation_rate=2 ** 0, padding='same')(inp)
+    c2 = tf.keras.layers.Conv1D(50, 2, strides=1, dilation_rate=2 ** 1, padding='same')(inp)
+    c3 = tf.keras.layers.Conv1D(50, 2, strides=1, dilation_rate=2 ** 2, padding='same')(inp)
+    c4 = tf.keras.layers.Conv1D(50, 2, strides=1, dilation_rate=2 ** 3, padding='same')(inp)
+    c5 = tf.keras.layers.Conv1D(50, 2, strides=1, dilation_rate=2 ** 4, padding='same')(inp)
     c = tf.keras.layers.concatenate([c1, c2, c3, c4, c5])
     conv_out = tf.keras.layers.Conv1D(16, 1, padding='same')(c)
 
-    x = tf.keras.layers.Flatten()(conv_out)
-    x = tf.keras.layers.Dropout(0.25)(x)
+    x = tf.keras.layers.Flatten()(c)
+    x = tf.keras.layers.Dropout(0.5)(x)
 
     x = tf.keras.layers.Dense(512, activation='relu')(x)
     x = tf.keras.layers.Dense(256, activation='relu')(x)
@@ -63,10 +65,8 @@ def cnn():
     return model
 
 
-def get_timespan(df, pred_start, timesteps=TIMESTEPS, is_train=True):
-    cols = df.columns[pred_start:pred_start+timesteps]
-    X = np.nan_to_num(df[cols].values)
-
+def get_timespan(df):
+    X = np.nan_to_num(df.values)
     return X
 
 
@@ -78,15 +78,16 @@ def train_generator(df, targets, sample_ids, batch_size=16, scale=1):
         yield create_dataset_part(df_tmp, y_tmp[targetcols].values, 0, True, scale=scale)
         gc.collect()
 
-def create_dataset(df, y, scale=1, is_train=True):
-    return create_dataset_part(df, y[targetcols].values, 0, scale=scale)
+def create_dataset(df, y, scale=2):
+    return create_dataset_part(df, y[targetcols].values, scale=scale)
 
-def create_dataset_part(df, y, pred_start, noise_removal=None, percentile=20, scale=1, normalize='global', is_train=True):
-    x = get_timespan(df, pred_start,timesteps=TIMESTEPS, is_train=is_train)
+def create_dataset_part(df, y, noise_removal=None, percentile=20, scale=2, normalize='global', is_train=True):
+    x = get_timespan(df)
     if(noise_removal=='min'):
         x = x - np.min(x, axis=1).reshape((-1,1))
 
     x = einops.rearrange(x, '(b i) t -> b t i', i=237)
+
     if(scale==1):
         max_vals = np.max(np.max(np.nan_to_num(x), axis=2), axis=1)
         max_vals[max_vals == 0] = 1
@@ -117,9 +118,9 @@ for fold, (trn_ind, val_ind) in enumerate(kfold.split(Xtrain, Ytrain)):
     x_train, y_train = Xtrain[trn_ind], Ytrain[trn_ind]
     x_val, y_val = Xtrain[val_ind], Ytrain[val_ind]
     model = cnn()
-    callback = [tf.keras.callbacks.EarlyStopping(patience=7),
+    callback = [tf.keras.callbacks.EarlyStopping(patience=5),
                 tf.keras.callbacks.ModelCheckpoint('cnn.h5', save_best_only=True, save_weights_only=True),
-                tf.keras.callbacks.ReduceLROnPlateau(patience=4)]
+                tf.keras.callbacks.ReduceLROnPlateau(patience=3)]
     #model.fit(train_set, steps_per_epoch=100, epochs=100, verbose=1, validation_data=val_set,callbacks=callback)
     model.fit(x_train, y_train, batch_size=8, epochs=100, verbose=1, validation_data=(x_val, y_val), callbacks=callback)
     model.load_weights("cnn.h5")
@@ -146,6 +147,7 @@ for i in range(len(targetcols)):
 
 score = np.round(np.mean(scores), 3)
 print(f"CV Score: {np.mean(scores)}")
+np.mean(scores[:4])
 #CV Score: 0.15091819688979083
 
 y_val2 = val_labels[targetcols].values
@@ -158,7 +160,7 @@ score = np.round(np.mean(scores), 3)
 print(f"Holdout Score: {np.mean(scores)}")
 
 '''
-CV Score: 0.1487050969901116
-CV Score: 0.14581984510979773
+CV Score: 0.15275252103104803
+Holdout Score: 0.15331449266665523
 '''
 

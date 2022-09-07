@@ -59,12 +59,18 @@ def main():
     metadata = pd.read_csv("input/metadata.csv")
     metadata = metadata.merge(lkp, on=['sample_id'], how='left')
 
-    train = df[df['sample_number'].isin(metadata[metadata.split=='train'].sample_number)].reset_index(drop=True)
-    val = df[df['sample_number'].isin(metadata[metadata.split=='val'].sample_number)].reset_index(drop=True)
-    test = df[df['sample_number'].isin(metadata[metadata.split=='test'].sample_number)].reset_index(drop=True)
+    df = df.merge(metadata[['sample_number','split']], how='left', on='sample_number')
+
+    train = df[df.split == 'train'].reset_index(drop=True)
+    val = df[df.split == "val"].reset_index(drop=True)
+    test = df[df.split == "test"].reset_index(drop=True)
 
     del df
     gc.collect()
+
+    train.drop(['split'], axis=1, inplace=True)
+    val.drop(['split'], axis=1, inplace=True)
+    test.drop(['split'], axis=1, inplace=True)
 
     print(f"Number of train samples: {len(train['sample_number'].unique())}")
     print(f"Number of val samples: {len(val['sample_number'].unique())}")

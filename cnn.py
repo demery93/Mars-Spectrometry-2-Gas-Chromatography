@@ -5,7 +5,8 @@ import einops
 from sklearn.model_selection import KFold
 from config import config
 import tensorflow as tf
-from sklearn.metrics import log_loss
+from utils import aggregated_log_loss
+from einops.layers.keras import Rearrange
 
 train = pd.read_feather("processed/train.f")
 val = pd.read_feather("processed/val.f")
@@ -28,9 +29,13 @@ train = pd.pivot_table(train, index=['sample_number','mass'], columns='time_id',
 val = pd.pivot_table(val, index=['sample_number','mass'], columns='time_id', values='intensity', aggfunc='mean')
 test = pd.pivot_table(test, index=['sample_number','mass'], columns='time_id', values='intensity', aggfunc='mean')
 
-train = train - train_min
-val = val - val_min
-test = test - test_min
+#train = train - train_min.min(axis=1).values.reshape((-1,1))
+#val = val - val_min.min(axis=1).values.reshape((-1,1))
+#test = test - test_min.min(axis=1).values.reshape((-1,1))
+
+train = train - train_min.min(axis=1).values.reshape((-1,1))
+val = val - val_min.min(axis=1).values.reshape((-1,1))
+test = test - test_min.min(axis=1).values.reshape((-1,1))
 
 
 TIMESTEPS = train.shape[1]
@@ -89,14 +94,9 @@ def create_dataset_part(df, y, noise_removal=None, percentile=20, scale=2, norma
 
     x = einops.rearrange(x, '(b i) t -> b t i', i=237)
 
-    if(scale==1):
-        max_vals = np.max(np.max(np.nan_to_num(x), axis=2), axis=1)
-        max_vals[max_vals == 0] = 1
-        x = x / max_vals.reshape((-1, 1, 1))
-    if(scale==2):
-        sum_vals = np.sum(np.nan_to_num(x), axis=2)
-        sum_vals[sum_vals == 0] = 1
-        x = x / sum_vals.reshape((-1, TIMESTEPS, 1))
+    sum_vals = np.sum(np.nan_to_num(x), axis=2)
+    sum_vals[sum_vals == 0] = 1
+    x = x / sum_vals.reshape((-1, TIMESTEPS, 1))
 
     return(x, y)
 
@@ -115,8 +115,8 @@ Xtest, _ = create_dataset(test, labels, scale=2)
 
 kfold = KFold(n_splits=config.n_fold, random_state=config.seed, shuffle=True)
 oof = np.zeros((len(labels), len(targetcols)))
-val_pred = np.zeros((len(Xval), len(targetcols)))
-test_pred = np.zeros((len(Xtest), len(targetcols)))
+val_pred = []
+test_pred = []
 
 # Iterate through each fold
 scores = []
@@ -124,25 +124,30 @@ for fold, (trn_ind, val_ind) in enumerate(kfold.split(labels, labels)):
     x_train, y_train = Xtrain[trn_ind], Ytrain[trn_ind]
     x_val, y_val = Xtrain[val_ind], Ytrain[val_ind]
     model = cnn()
-    callback = [tf.keras.callbacks.EarlyStopping(patience=7),
-                tf.keras.callbacks.ModelCheckpoint('cnn.h5', save_best_only=True, save_weights_only=True),
+    callback = [tf.keras.callbacks.EarlyStopping(patience=5),
+                tf.keras.callbacks.ModelCheckpoint(f'cnn_{fold}.h5', save_best_only=True, save_weights_only=True),
                 tf.keras.callbacks.ReduceLROnPlateau(patience=4)]
     model.fit(x_train, y_train, batch_size=16, epochs=100, verbose=1, validation_data=(x_val, y_val), callbacks=callback)
-    model.load_weights("cnn.h5")
+    model.load_weights(f"cnn_{fold}.h5")
     oof[val_ind] = model.predict(x_val)
 
-    val_pred += model.predict(Xval) / 5
-    test_pred += model.predict(Xtest) / 5
+    val_pred.append(model.predict(Xval, verbose=0))
+    test_pred.append(model.predict(Xtest, verbose=0))
 
 y = labels[targetcols].values
-scores = []
-for i in range(len(targetcols)):
-    score = log_loss(y[:,i], oof[:,i], eps=1e-7)
-    scores.append(score)
+score = np.round(aggregated_log_loss(y, oof), 3)
+print(f"CV Score: {aggregated_log_loss(y, oof)}")
+#CV Score: 0.1381
 
-score = np.round(np.mean(scores), 3)
-print(f"CV Score: {np.mean(scores)}")
-#CV Score: 0.140840184483223
+tmp = np.zeros((len(Xval), len(targetcols)))
+for x in val_pred:
+    tmp += x / 5
+val_pred = np.mean(np.dstack(val_pred), axis=-1)
+tmp
+val_pred
+test_pred = np.mean(np.dstack(test_pred), axis=-1)
+len(val_pred)
+print(val_pred.shape, test_pred.shape)
 sub = pd.read_csv("input/submission_format.csv")
 
 pred = np.concatenate([val_pred, test_pred], axis=0)
@@ -153,6 +158,3 @@ for c in targetcols:
 sub.to_csv(f"output/submission_{score}.csv", index=False, header=True)
 for i in range(len(targetcols)):
     print(oof[:,i].mean(), sub[targetcols].values[:,i].mean())
-
-targetcols
-sub.columns
