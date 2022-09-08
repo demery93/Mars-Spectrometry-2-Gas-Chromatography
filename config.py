@@ -13,12 +13,17 @@ class ParamConfig:
         self.sample_rate = 1
         self.n_fold = 5
         self.seed = 42
+        self.max_mass = 250
+        self.min_mass = 13
+        self.min_time = 0
+        self.max_time = 50
 
         self.ensemble_method = ['mean']
 
         self.train_data_path = 'input/train_features/'
         self.val_data_path = 'input/val_features/'
         self.test_data_path = 'input/test_features/'
+        self.processed_feature_path = 'processed/features'
         self.train_label_path = 'input/train_labels.csv'
         self.val_label_path = 'input/val_labels.csv'
         self.model_path = 'trained_models'

@@ -9,80 +9,67 @@ from utils import aggregated_log_loss
 from einops.layers.keras import Rearrange
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
+import math
 
 TIMESTEPS = 49
-train = pd.read_feather("processed/train.f")
-val = pd.read_feather("processed/val.f")
-test = pd.read_feather("processed/test.f")
 labels = pd.read_csv("input/train_labels.csv")
-metadata = pd.read_feather("processed/metadata.f")
-sub = pd.read_csv("input/submission_format.csv")
-labels = labels.merge(metadata, how='left')
+metadata = pd.read_csv("input/metadata.csv")
 
-sample = pd.read_csv("input/train_features/S0001.csv", dtype={'time':np.float64, 'mass':np.float64, 'intensity':np.int64})
-mass = np.round(sample.mass).values.astype(int)
-intensity = sample.intensity.values
-min_time = 0
-max_time = 49
-time_step = 1
+def render_image(time: np.ndarray,
+                 mass: np.ndarray,
+                 intensity: np.ndarray,
+                 step_pos: np.ndarray,
+                 time_step=1,
+                 time_query_range=6,
+                 prob_smooth=6,
+                 max_mass=250,
+                 min_mass=13
+                 ):
 
-# temp_step = 6
-max_time_id = (max_time - min_time) // time_step
+    # temp_step = 6
+    max_time_id = (config.max_time - config.min_time) // time_step
+    nions = (config.max_mass - config.min_mass)
 
-# temp_query_range = 10
-time_query_range = 2
-prob_smooth=6
+    # temp_query_range = 10
+    prob_smooth=6
 
-res = np.zeros((535+1, max_time), dtype=np.float32) - 1
-time = sample.time.values
-step_pos = np.where(np.diff(sample['mass'].values, prepend=0) < 0)[0]
-step_time = [np.mean(v) for v in np.split(time, step_pos)][1:-1]
-time_bands = [[] for t in range(max_time + time_query_range + 1)]  # temp: list of steps
-import math
-for step, t in enumerate(step_time):
-    t = math.floor(t)
-    if 0 <= t < len(time_bands):
-        time_bands[t].append(step)
+    res = np.zeros((nions, config.max_time), dtype=np.float32) - 1
+    step_time = [np.mean(v) for v in np.split(time, step_pos)][1:-1]
+    time_bands = [[] for t in range(config.max_time + time_query_range + 1)]  # temp: list of steps
+    for step, t in enumerate(step_time):
+        t = math.floor(t)
+        if 0 <= t < len(time_bands):
+            time_bands[t].append(step)
 
-for temp_id in range(max_time_id):
-    t = min_time + temp_id * time_step
-    src_steps = []
-    src_steps_p = []
-    for band in time_bands[max(0, t - time_query_range):t + time_query_range + 1]:
-        for step in band:
-            src_steps.append(step)
-            src_steps_p.append(1.0 / (prob_smooth + abs(t - step_time[step])))
+    for time_id in range(max_time_id):
+        t = config.min_time + time_id * time_step
+        src_steps = []
+        src_steps_p = []
+        for band in time_bands[max(0, t - time_query_range):t + time_query_range + 1]:
+            for step in band:
+                src_steps.append(step)
+                src_steps_p.append(1.0 / (prob_smooth + abs(t - step_time[step])))
 
-    if not len(src_steps):
-        continue
+        if not len(src_steps):
+            continue
 
-    src_steps_p = np.array(src_steps_p)
-    src_step = np.random.choice(src_steps, p=src_steps_p / src_steps_p.sum())
+        src_steps_p = np.array(src_steps_p)
+        src_step = np.random.choice(src_steps, p=src_steps_p / src_steps_p.sum())
 
-    for i in range(step_pos[src_step], step_pos[src_step + 1]):
-        res[mass[i], temp_id] = intensity[i]
+        for i in range(step_pos[src_step], step_pos[src_step + 1]):
+            res[mass[i] - config.min_mass, time_id] = intensity[i]
 
-res.shape
+    return res.T
+
+
 targetcols = ['aromatic', 'hydrocarbon', 'carboxylic_acid',
        'nitrogen_bearing_compound', 'chlorine_bearing_compound',
        'sulfur_bearing_compound', 'alcohol', 'other_oxygen_bearing_compound',
        'mineral']
 
-print(train.shape, val.shape, test.shape)
-train['intensity'] = train['intensity'].replace(0, np.nan)
-val['intensity'] = val['intensity'].replace(0, np.nan)
-test['intensity'] = test['intensity'].replace(0, np.nan)
-train_noise, val_noise, test_noise = [], [], []
-train_noise.append(train.groupby(['sample_number','mass'], dropna=True)['intensity'].min())
-val_noise.append(val.groupby(['sample_number','mass'], dropna=True)['intensity'].min())
-test_noise.append(test.groupby(['sample_number','mass'], dropna=True)['intensity'].min())
-for q in tqdm([0.01,2,5,20]):
-    train_noise.append(train.groupby(['sample_number', 'mass'], dropna=True)['intensity'].quantile(q/100))
-    val_noise.append(val.groupby(['sample_number', 'mass'], dropna=True)['intensity'].quantile(q/100))
-    test_noise.append(test.groupby(['sample_number', 'mass'], dropna=True)['intensity'].quantile(q/100))
 
 def cnn():
-    inp = tf.keras.layers.Input(shape=(TIMESTEPS, 237))
+    inp = tf.keras.layers.Input(shape=(50, 237))
 
     c1 = tf.keras.layers.Conv1D(50, 2, strides=1, dilation_rate=2 ** 0, padding='same')(inp)
     c1 = tf.keras.layers.BatchNormalization()(c1)
@@ -100,7 +87,6 @@ def cnn():
     c5 = tf.keras.layers.BatchNormalization()(c5)
     c5 = tf.keras.layers.Activation('relu')(c5)
     c = tf.keras.layers.concatenate([c1, c2, c3, c4, c5])
-    conv_out = tf.keras.layers.Conv1D(16, 1, padding='same')(c)
 
     x = tf.keras.layers.Flatten()(c)
     x = tf.keras.layers.Dropout(0.5)(x)
@@ -114,95 +100,76 @@ def cnn():
     model.compile(optimizer='adam', loss='binary_crossentropy')
     return model
 
-def get_timespan(df):
-    x = df.groupby(['sample_number', 'mass', 'time_id'])['intensity'].mean()
-    print(x.shape)
-    x = x.values.reshape((-1, TIMESTEPS, 237))
-    return x
-
-def train_generator(df, noise_l, targets, sample_ids, batch_size=16, scale=1):
+def train_generator(sample_ids, targets):
     while 1:
-        keep_idx = np.random.permutation(sample_ids)[:batch_size]
-        df_tmp = df[df.sample_number.isin(keep_idx)]
-        noise_tmp = []
-        for noise in noise_l:
-            noise_tmp.append(noise.index.get_level_values(0).isin(keep_idx))
-        y_tmp = targets[targets.sample_number.isin(keep_idx)]
-        scale = np.random.normal(loc=0.0, scale=1.0, size=None)
-        percentile = np.random.randint(4) + 1
-        yield create_dataset_part(df_tmp, noise_tmp, y_tmp[targetcols].values, scale=scale, percentile=percentile)
-        gc.collect()
+        for sample_id in np.random.permutation(sample_ids):
+            df = pd.read_csv(f"processed/features/{sample_id}.csv")
+            y_tmp = targets[targets.sample_id == sample_id]
+            scale = np.random.normal(loc=0.0, scale=1.0, size=None)
+            percentile = np.random.randint(4)
+            yield create_dataset_part(df, y_tmp[targetcols].values,  scale=scale)
+            gc.collect()
 
+def create_dataset_part(df, y, scale=1):
+    step_pos = np.where(np.diff(df['mass'].values, prepend=0) < 0)[0]
+    x = render_image(df.time.values,
+                     np.round(df.mass).values.astype(int),
+                     df.intensity.values,
+                     step_pos)
 
-def create_dataset(df, df_min, y):
-    return create_dataset_part(df, df_min, y[targetcols].values, scale=1, percentile=0, subsample=1)
-
-def create_dataset_part(df, df_noise, y, scale=1, percentile=0, subsample=0.8):
-    if(subsample < 1):
-        trn_ind, _ = train_test_split(df.index, train_size=subsample)
-    else:
-        trn_ind = df.index
-    x = get_timespan(df)
-    x = x - df_noise[0].values.reshape((-1, 1, 237))
-    if (percentile > 0):
-        x = np.clip(x - df_noise[percentile].values.reshape((-1, 1, 237)), 0, 1e9)
 
     x = np.nan_to_num(x)
-
-    sum_vals = np.sum(x, axis=2)
-    sum_vals[sum_vals == 0] = 1
-    x = x / sum_vals.reshape((-1, TIMESTEPS, 1))
-
     x = scale*x
 
+    x = x.reshape((-1, 50, 237))
+
+    sum_vals = np.sum(np.clip(x, 0, 1e12), axis=2)
+    sum_vals[sum_vals == 0] = 1
+    x = x / sum_vals.reshape((-1, 50, 1))
+
     return(x, y)
-
-def scheduler(epoch, lr):
-    if epoch < 6:
-        return 0.001
-    elif epoch < 9:
-        return 0.0001
-    else:
-        return 0.00001
-
-Xtrain, Ytrain = create_dataset(train, train_min, labels)
-Xval, _ = create_dataset(val, val_min, labels)
-Xtest, _ = create_dataset(test, test_min, labels)
 
 
 kfold = KFold(n_splits=config.n_fold, random_state=config.seed, shuffle=True)
 oof = np.zeros((len(labels), len(targetcols)))
 val_pred = []
 test_pred = []
-next(train_set)
-train.groupby("sample_number")['mass'].nunique().unique()
-train.groupby("sample_number")['time_id'].nunique().unique()
-
-train.fillna(0, inplace=True)
 # Iterate through each fold
 scores = []
-16 * 49 * 237
+from tqdm import tqdm
+
+x_l, y_l = [], []
+for sample in tqdm(labels.sample_id.values):
+    df = pd.read_feather(f"processed/features/{sample}.f")
+    y_tmp = labels[labels.sample_id == sample]
+    x, y = create_dataset_part(df, y_tmp[targetcols].values, scale=1)
+    x_l.append(x)
+    y_l.append(y)
+
+Xtrain = np.concatenate(x_l, axis=0)
+Ytrain = np.concatenate(y_l)
+del x_l, y_l
+gc.collect()
+
 for fold, (trn_ind, val_ind) in enumerate(kfold.split(labels, labels)):
-    train_samples = labels.sample_number.values[trn_ind]
-    train_set = train_generator(train, train_noise, labels, train_samples, batch_size=16)
-    #x_train, y_train = Xtrain[trn_ind], Ytrain[trn_ind]
+    train_samples, val_samples = labels.sample_id.values[trn_ind], labels.sample_id.values[val_ind]
+
+    #train_set = train_generator(train_samples, labels)
+    #val_set = train_generator(val_samples, labels)
+    x_train, y_train = Xtrain[trn_ind], Ytrain[trn_ind]
     x_val, y_val = Xtrain[val_ind], Ytrain[val_ind]
     model = cnn()
     callback = [tf.keras.callbacks.EarlyStopping(patience=5),
                 tf.keras.callbacks.ModelCheckpoint(f'cnn_{fold}.h5', save_best_only=True, save_weights_only=True),
                 tf.keras.callbacks.ReduceLROnPlateau(patience=3)]
-    model.fit(train_set, steps_per_epoch=50, epochs=100, verbose=1, validation_data=(x_val, y_val), callbacks=callback)
-    model.load_weights(f"cnn_{fold}.h5")
+    #model.fit(train_set, steps_per_epoch=len(train_samples), epochs=100, verbose=1, validation_data=val_set, validation_steps=len(val_samples), callbacks=callback)
+    model.fit(x_train, y_train, batch_size=16, epochs=100, verbose=1, validation_data=(x_val, y_val), callbacks=callback)
     oof[val_ind] = model.predict(x_val)
-
-    val_pred.append(model.predict(Xval, verbose=0))
-    test_pred.append(model.predict(Xtest, verbose=0))
 
 y = labels[targetcols].values
 score = np.round(aggregated_log_loss(y, oof), 3)
 print(f"CV Score: {aggregated_log_loss(y, oof)}")
-#0.15585355122164415 - 0.2087
-# CV Score: 0.1546591230320039
+# CV Score: 0.19835358760840024
 
 val_pred = np.mean(np.dstack(val_pred), axis=-1)
 test_pred = np.mean(np.dstack(test_pred), axis=-1)
