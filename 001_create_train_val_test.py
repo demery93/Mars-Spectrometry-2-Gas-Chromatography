@@ -19,8 +19,11 @@ def read_and_concatenate():
     sample_ids = []
     samples = []
 
-    ionlist = [i for i in range(13,250)]  # max number of ions for all models is 250
-    fill = pd.DataFrame({'mass': ionlist})
+    ## For each sample, we need to ensure that mass / time id combination has at least 1 record
+    size = 49 // config.sample_rate
+    ionlist = [i for i in range(13,250)] * size  # max number of ions for all models is 250
+    times = [i % size for i in range(len(ionlist))]
+    fill = pd.DataFrame({'mass': ionlist, 'time_id':times})
 
     sample_number = 0
     for dir in dirs:
@@ -30,12 +33,15 @@ def read_and_concatenate():
             sample['sample_number'] = sample['sample_number']
             sample['mass'] = np.round(sample['mass']).astype(np.int16)
             sample = sample[(sample.mass > 12) & (sample.mass < 250)].reset_index(drop=True)
-            t = sample.time.min()
+
+            ## Create time id
+            sample['time_id'] = (sample['time'] // config.sample_rate).astype(int)
+            sample.drop(['time'], axis=1, inplace=True)
+
 
             # Make sure all ions are present in all samples
-            ionfill = fill[~fill['mass'].isin(sample['mass'])].copy()
+            ionfill = fill[~(fill['mass'].astype(str) + fill['time_id'].astype(str)).isin((sample['mass'].astype(str) + sample['time_id'].astype(str)))].copy()
             ionfill['sample_number'] = sample_number
-            ionfill['time'] = t
             sample = pd.concat([sample, ionfill], axis=0, ignore_index=True).fillna(0)
 
             samples.append(sample)
@@ -52,9 +58,6 @@ def read_and_concatenate():
 
 def main():
     df, lkp = read_and_concatenate()
-
-    df['time_id'] = (df['time'] // config.sample_rate).astype(int)
-    df.drop(['time'], axis=1, inplace=True)
 
     metadata = pd.read_csv("input/metadata.csv")
     metadata = metadata.merge(lkp, on=['sample_id'], how='left')

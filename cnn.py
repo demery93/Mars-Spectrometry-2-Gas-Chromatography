@@ -7,7 +7,10 @@ from config import config
 import tensorflow as tf
 from utils import aggregated_log_loss
 from einops.layers.keras import Rearrange
+from sklearn.model_selection import train_test_split
+from tqdm import tqdm
 
+TIMESTEPS = 49
 train = pd.read_feather("processed/train.f")
 val = pd.read_feather("processed/val.f")
 test = pd.read_feather("processed/test.f")
@@ -16,50 +19,67 @@ metadata = pd.read_feather("processed/metadata.f")
 sub = pd.read_csv("input/submission_format.csv")
 labels = labels.merge(metadata, how='left')
 
+sample = pd.read_csv("input/train_features/S0001.csv", dtype={'time':np.float64, 'mass':np.float64, 'intensity':np.int64})
+mass = np.round(sample.mass).values.astype(int)
+intensity = sample.intensity.values
+min_time = 0
+max_time = 49
+time_step = 1
+
+# temp_step = 6
+max_time_id = (max_time - min_time) // time_step
+
+# temp_query_range = 10
+time_query_range = 2
+prob_smooth=6
+
+res = np.zeros((535+1, max_time), dtype=np.float32) - 1
+time = sample.time.values
+step_pos = np.where(np.diff(sample['mass'].values, prepend=0) < 0)[0]
+step_time = [np.mean(v) for v in np.split(time, step_pos)][1:-1]
+time_bands = [[] for t in range(max_time + time_query_range + 1)]  # temp: list of steps
+import math
+for step, t in enumerate(step_time):
+    t = math.floor(t)
+    if 0 <= t < len(time_bands):
+        time_bands[t].append(step)
+
+for temp_id in range(max_time_id):
+    t = min_time + temp_id * time_step
+    src_steps = []
+    src_steps_p = []
+    for band in time_bands[max(0, t - time_query_range):t + time_query_range + 1]:
+        for step in band:
+            src_steps.append(step)
+            src_steps_p.append(1.0 / (prob_smooth + abs(t - step_time[step])))
+
+    if not len(src_steps):
+        continue
+
+    src_steps_p = np.array(src_steps_p)
+    src_step = np.random.choice(src_steps, p=src_steps_p / src_steps_p.sum())
+
+    for i in range(step_pos[src_step], step_pos[src_step + 1]):
+        res[mass[i], temp_id] = intensity[i]
+
+res.shape
 targetcols = ['aromatic', 'hydrocarbon', 'carboxylic_acid',
        'nitrogen_bearing_compound', 'chlorine_bearing_compound',
        'sulfur_bearing_compound', 'alcohol', 'other_oxygen_bearing_compound',
        'mineral']
 
-train_min = train.groupby(['sample_number','mass'])['intensity'].min()
-#train_01 = train.groupby(['sample_number','mass'])['intensity'].quantile(0.01)
-val_min = val.groupby(['sample_number','mass'])['intensity'].min()
-test_min = test.groupby(['sample_number','mass'])['intensity'].min()
-
-ionlist = [i for i in range(13, 250)]  # max number of ions for all models is 250
-fill = pd.DataFrame({'mass': ionlist})
-fills = []
-for i in range(TIMESTEPS):
-    for sample in labels.sample_number.unique():
-        tmp = fill.copy()
-        tmp['time_id'] = i
-        tmp['sample_number'] = sample
-        fills.append(tmp)
-fill = pd.concat(fills, ignore_index=True)
-fill = fill.set_index(['sample_number','mass','time_id'])
-
-del fills, tmp
-gc.collect()
-sample = train.sample_number.unique()[:16]
-tmp = train[train.sample_number.isin(sample)]
-tmp2 = tmp.groupby(['sample_number','mass','time_id'])['intensity'].mean()
-tmp3 = fill.join(tmp2, how='left').fillna(0)
-tmp4 = tmp3.values.reshape((-1, TIMESTEPS, 237))
-
-tmp.time_id.max()
-len(tmp.mass.unique())
-len(tmp.time_id.unique())
-tmp3.values.reshape((-1, 49, 237))
-7
-train = pd.pivot_table(train, index=['sample_number','mass'], columns='time_id', values='intensity', aggfunc='mean')
-val = pd.pivot_table(val, index=['sample_number','mass'], columns='time_id', values='intensity', aggfunc='mean')
-test = pd.pivot_table(test, index=['sample_number','mass'], columns='time_id', values='intensity', aggfunc='mean')
-
-TIMESTEPS = train.shape[1]
-gc.collect()
-
-test = test[train.columns]
-val = val[train.columns]
+print(train.shape, val.shape, test.shape)
+train['intensity'] = train['intensity'].replace(0, np.nan)
+val['intensity'] = val['intensity'].replace(0, np.nan)
+test['intensity'] = test['intensity'].replace(0, np.nan)
+train_noise, val_noise, test_noise = [], [], []
+train_noise.append(train.groupby(['sample_number','mass'], dropna=True)['intensity'].min())
+val_noise.append(val.groupby(['sample_number','mass'], dropna=True)['intensity'].min())
+test_noise.append(test.groupby(['sample_number','mass'], dropna=True)['intensity'].min())
+for q in tqdm([0.01,2,5,20]):
+    train_noise.append(train.groupby(['sample_number', 'mass'], dropna=True)['intensity'].quantile(q/100))
+    val_noise.append(val.groupby(['sample_number', 'mass'], dropna=True)['intensity'].quantile(q/100))
+    test_noise.append(test.groupby(['sample_number', 'mass'], dropna=True)['intensity'].quantile(q/100))
 
 def cnn():
     inp = tf.keras.layers.Input(shape=(TIMESTEPS, 237))
@@ -94,37 +114,42 @@ def cnn():
     model.compile(optimizer='adam', loss='binary_crossentropy')
     return model
 
-
 def get_timespan(df):
-    X = df.values
-    return X
+    x = df.groupby(['sample_number', 'mass', 'time_id'])['intensity'].mean()
+    print(x.shape)
+    x = x.values.reshape((-1, TIMESTEPS, 237))
+    return x
 
-def train_generator(df, df_min, targets, sample_ids, batch_size=16, scale=1):
+def train_generator(df, noise_l, targets, sample_ids, batch_size=16, scale=1):
     while 1:
         keep_idx = np.random.permutation(sample_ids)[:batch_size]
-        df_tmp = df[df.index.get_level_values(0).isin(keep_idx)]
-        df_min_tmp = df_min[df_min.index.get_level_values(0).isin(keep_idx)]
+        df_tmp = df[df.sample_number.isin(keep_idx)]
+        noise_tmp = []
+        for noise in noise_l:
+            noise_tmp.append(noise.index.get_level_values(0).isin(keep_idx))
         y_tmp = targets[targets.sample_number.isin(keep_idx)]
         scale = np.random.normal(loc=0.0, scale=1.0, size=None)
-        percentile = np.random.permutation([0.1, 5, 10, 20])[0]
-        yield create_dataset_part(df_tmp, df_min_tmp, y_tmp[targetcols].values, scale=scale, percentile=percentile)
+        percentile = np.random.randint(4) + 1
+        yield create_dataset_part(df_tmp, noise_tmp, y_tmp[targetcols].values, scale=scale, percentile=percentile)
         gc.collect()
 
+
 def create_dataset(df, df_min, y):
-    return create_dataset_part(df, df_min, y[targetcols].values, scale=1)
+    return create_dataset_part(df, df_min, y[targetcols].values, scale=1, percentile=0, subsample=1)
 
-def create_dataset_part(df, df_min, y, scale=1, percentile=0):
-    df = df - df_min.values.reshape((-1,1))
-
+def create_dataset_part(df, df_noise, y, scale=1, percentile=0, subsample=0.8):
+    if(subsample < 1):
+        trn_ind, _ = train_test_split(df.index, train_size=subsample)
+    else:
+        trn_ind = df.index
     x = get_timespan(df)
+    x = x - df_noise[0].values.reshape((-1, 1, 237))
     if (percentile > 0):
-        xp = np.nanpercentile(x, percentile, axis=1)
-        x = np.clip(x - xp.reshape((-1,1)), 0, 1e9)
+        x = np.clip(x - df_noise[percentile].values.reshape((-1, 1, 237)), 0, 1e9)
 
     x = np.nan_to_num(x)
-    x = einops.rearrange(x, '(b i) t -> b t i', i=237)
 
-    sum_vals = np.sum(np.nan_to_num(x), axis=2)
+    sum_vals = np.sum(x, axis=2)
     sum_vals[sum_vals == 0] = 1
     x = x / sum_vals.reshape((-1, TIMESTEPS, 1))
 
@@ -149,12 +174,17 @@ kfold = KFold(n_splits=config.n_fold, random_state=config.seed, shuffle=True)
 oof = np.zeros((len(labels), len(targetcols)))
 val_pred = []
 test_pred = []
+next(train_set)
+train.groupby("sample_number")['mass'].nunique().unique()
+train.groupby("sample_number")['time_id'].nunique().unique()
 
+train.fillna(0, inplace=True)
 # Iterate through each fold
 scores = []
+16 * 49 * 237
 for fold, (trn_ind, val_ind) in enumerate(kfold.split(labels, labels)):
     train_samples = labels.sample_number.values[trn_ind]
-    train_set = train_generator(train, train_min, labels, train_samples, batch_size=32)
+    train_set = train_generator(train, train_noise, labels, train_samples, batch_size=16)
     #x_train, y_train = Xtrain[trn_ind], Ytrain[trn_ind]
     x_val, y_val = Xtrain[val_ind], Ytrain[val_ind]
     model = cnn()
