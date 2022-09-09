@@ -43,3 +43,19 @@ def fill_t_bins(t, intensity, step=config.sample_rate):
         bins = pd.Series(bins).interpolate().values
 
     return t_bins, bins
+
+def print_stats(title, array):
+    if len(array):
+        print(
+            "{} shape:{} dtype:{} min:{} max:{} mean:{} median:{}".format(
+                title,
+                array.shape,
+                array.dtype,
+                np.min(array),
+                np.max(array),
+                np.mean(array),
+                np.median(array),
+            )
+        )
+    else:
+        print(title, "empty")

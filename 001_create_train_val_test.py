@@ -8,6 +8,7 @@ from tqdm import tqdm
 from config import config
 from utils import fill_t_bins
 import multiprocessing
+from sklearn.model_selection import KFold
 
 def preprocess(src, dst):
     '''
@@ -103,5 +104,19 @@ def preprocess_all_features():
 
     pool.starmap(preprocess, requests)
 
+def split_to_folds():
+    kf = KFold(n_splits=config.n_fold, random_state=config.seed, shuffle=True)
+    metadata = pd.read_csv("input/metadata.csv")
+
+    metadata = metadata[metadata.split == 'train']
+    metadata['fold'] = -1
+    for fold, (train_index, test_index) in enumerate(kf.split(metadata.sample_id, metadata.sample_id)):
+        print(fold, test_index)
+        metadata.loc[test_index, 'fold'] = fold
+
+    print(metadata['fold'].value_counts())
+    metadata[['sample_id', 'split', 'fold', 'derivatized']].to_csv('processed/folds.csv', index=False)
+
 if __name__ == "__main__":
+    split_to_folds()
     preprocess_all_features()
