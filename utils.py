@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import log_loss
 from config import config
+import time
+from contextlib import contextmanager
 
 def aggregated_log_loss(ytrue, ypred):
     scores = []
@@ -59,3 +61,11 @@ def print_stats(title, array):
         )
     else:
         print(title, "empty")
+
+@contextmanager
+def timeit_context(name, enabled=True):
+    startTime = time.time()
+    yield
+    elapsedTime = time.time() - startTime
+    if enabled:
+        print(f"[{name}] finished in {elapsedTime:0.3f}s")

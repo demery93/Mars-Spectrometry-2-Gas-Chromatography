@@ -105,7 +105,7 @@ def preprocess_all_features():
     pool.starmap(preprocess, requests)
 
 def split_to_folds():
-    kf = KFold(n_splits=config.n_fold, random_state=config.seed, shuffle=True)
+    kf = KFold(n_splits=config.n_folds, random_state=config.seed, shuffle=True)
     metadata = pd.read_csv("input/metadata.csv")
 
     metadata = metadata[metadata.split == 'train']

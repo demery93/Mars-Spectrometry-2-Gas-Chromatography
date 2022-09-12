@@ -3,9 +3,8 @@ import os
 class ParamConfig:
     def __init__(self):
         #Number of runs per model
-        self.n_folds = 5
+        self.n_folds = 4
         self.sample_rate = 1
-        self.n_fold = 5
         self.seed = 42
         self.max_mass = 250
         self.min_mass = 13
