@@ -89,7 +89,7 @@ def check_performance():
 
 
 if __name__ == '__main__':
-    check_render_image()
-    check_dataset()
-    check_aug()
+    #heck_render_image()
+    #check_dataset()
+    #check_aug()
     check_performance()

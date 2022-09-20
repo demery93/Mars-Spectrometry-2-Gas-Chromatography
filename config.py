@@ -10,6 +10,7 @@ class ParamConfig:
         self.min_mass = 13
         self.min_time = 0
         self.max_time = 50
+        self.tta = 16
 
         self.train_data_path = 'input/train_features/'
         self.val_data_path = 'input/val_features/'

@@ -12,20 +12,23 @@ def render_image(time: np.ndarray,
                  mass: np.ndarray,
                  intensity: np.ndarray,
                  step_pos: np.ndarray,
-                 time_step=1
+                 time_step=1,
+                 min_time = 0,
+                 max_time = 50,
+                 min_mass = 1,
+                 max_mass = 250,
                  ):
-    max_time_id = int((config.max_time - config.min_time) // time_step)
-    nions = (config.max_mass - config.min_mass)
+    max_time_id = int((max_time - min_time) // time_step)
+    nions = (max_mass - min_mass)
 
-    res = np.zeros((nions, config.max_time), dtype=np.float32) - 1
+    res = np.zeros((nions, int((max_time - min_time)//time_step)), dtype=np.float32) - 1
     step_time = [np.mean(v) for v in np.split(time, step_pos)][1:-1]
-    time_bands = [[] for t in range(int(config.max_time // time_step) + 1)]  # temp: list of steps
+    time_bands = [[] for t in range(int(max_time // time_step) + 1)]  # temp: list of steps
     for step, t in enumerate(step_time):
         t = int(t // time_step)
         if 0 <= t < len(time_bands):
             time_bands[t].append(step)
 
-    #sum = np.max(intensity)
     for time_id in range(max_time_id):
         t = int(config.min_time + time_id * time_step)
         src_steps = []
@@ -38,17 +41,12 @@ def render_image(time: np.ndarray,
 
         src_step = np.random.choice(src_steps)
 
-        sum = np.sum(intensity[step_pos[src_step]:step_pos[src_step+1]])
         for i in range(step_pos[src_step], step_pos[src_step + 1]):
             res[mass[i] - config.min_mass, time_id] = intensity[i]
 
-    res = res.T
-    res = np.clip(res, 0, 1e9)
-    sum = res.sum(axis=0).reshape((1,-1))
-    sum[sum == 0] = 1
-
-    res = res / sum
+    res = res / res.max()
     return res
+
 
 class MarsSpectrometryDataset(tf.keras.utils.Sequence):
     def __init__(self, fold, is_training,
@@ -65,6 +63,8 @@ class MarsSpectrometryDataset(tf.keras.utils.Sequence):
         self.min_mass = min_mass
         self.time_step = time_step
         self.time_query_range = time_query_range
+        self.nions = max_mass - min_mass
+        self.timesteps = int(max_time // time_step)
         self.sample_ids = []
         self.metadata = pd.read_csv("input/metadata.csv", index_col='sample_id')
 
@@ -107,7 +107,10 @@ class MarsSpectrometryDataset(tf.keras.utils.Sequence):
                          mass=mass,
                          intensity=intensity,
                          step_pos=step_pos,
-                         time_step=self.time_step
+                         time_step=self.time_step,
+                         max_time = self.max_time,
+                         min_mass = self.min_mass,
+                         max_mass = self.max_mass
                          )
         p[:, :] *= 2 ** np.random.normal(loc=0, scale=0.5, size=(p.shape[0], 1))
         return p
@@ -122,4 +125,4 @@ class MarsSpectrometryDataset(tf.keras.utils.Sequence):
         p = self.render_item(sample_id)
         p = p.astype(np.float32)
 
-        return (p.reshape((1, 50, 237)), label_values.reshape((1,9)))
+        return (p.reshape((1, self.timesteps, self.nions)), label_values.reshape((1,9)))
