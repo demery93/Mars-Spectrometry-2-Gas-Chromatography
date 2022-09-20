@@ -60,6 +60,25 @@ def cnn2d(timesteps, nions):
     model.compile(optimizer='adam', loss='binary_crossentropy')
     return model
 
+def cnn1d(timesteps, nions):
+    inp = tf.keras.layers.Input(shape=(timesteps, nions))
+
+    c1 = tf.keras.layers.Conv1D(16, 2, dilation_rate=2 ** 0, padding='same')(inp)
+    c2 = tf.keras.layers.Conv1D(16, 2, dilation_rate=2 ** 1, padding='same')(inp)
+    c3 = tf.keras.layers.Conv1D(16, 2, dilation_rate=2 ** 2, padding='same')(inp)
+    c4 = tf.keras.layers.Conv1D(16, 2, dilation_rate=2 ** 3, padding='same')(inp)
+    c5 = tf.keras.layers.Conv1D(16, 2, dilation_rate=2 ** 4, padding='same')(inp)
+
+    c = tf.keras.layers.concatenate([c1, c2, c3, c4, c5])
+    x = tf.keras.layers.Flatten()(c)
+    x = tf.keras.layers.Dropout(0.5)(x)
+    x = tf.keras.layers.Dense(512, activation='relu')(x)
+    x = tf.keras.layers.Dense(128, activation='relu')(x)
+
+    out = tf.keras.layers.Dense(9, activation='sigmoid')(x)
+    model = tf.keras.models.Model(inputs=inp, outputs=out)
+    return model
+
 def resnet34(timesteps, nions):
     inp = tf.keras.layers.Input(shape=(timesteps, nions))
 
