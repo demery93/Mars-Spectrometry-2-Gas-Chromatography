@@ -6,46 +6,37 @@ import model_definitions
 import tensorflow as tf
 import tensorflow_addons as tfa
 from dataset import MarsSpectrometryDataset
-from utils import aggregated_log_loss, CosineAnnealingWarmRestarts
+from utils import aggregated_log_loss, CosineAnnealingWarmRestarts, load_config_data
 import os
+import sys
 
-nb_epochs = 110
-optimizers = 'adamW'
-scheduler = 'CosineAnnealingWarmRestarts'
-scheduler_period = 16
-scheduler_t_mult =  1.41421
+fold = int(sys.argv[1])
+experiment_name = sys.argv[2]
 
-initial_lr = 0.001
-save_period = 10
-grad_clip = 64
-labels_smooth = 0.001
+cfg = load_config_data(experiment_name)
 
+model_params = cfg['model_params']
+dataset_params = cfg['dataset_params']
+train_params = cfg['train_params']
 
 labels = pd.read_csv("input/train_labels.csv")
 sub = pd.read_csv("input/submission_format.csv")
 labels.set_index('sample_id', inplace=True)
 oof = labels.copy()
 
-experiment = {"time_step":1,
-              "max_time": 50,
-              "timesteps":50,
-              "max_mass":250,
-              "min_mass":1,
-              "nions":249,
-              "model":'lstm',
-              'fold':0}
-
-checkpoints_dir = f"{config.output_path}/checkpoints/{experiment['model']}_{experiment['fold']}"
+checkpoints_dir = f"{config.output_path}/checkpoints/{model_params['model_cls']}_{fold}"
 #tensorboard_dir = f"{config.output_path}/tensorboard/{experiment['model']}_{experiment['fold']}"
 #logger = tf.summary.SummaryWriter()
-oof_dir = f"{config.output_path}/oof/{experiment['model']}_{experiment['fold']}"
+oof_dir = f"{config.output_path}/oof/{model_params['model_cls']}_{fold}"
 os.makedirs(checkpoints_dir, exist_ok=True)
 #os.makedirs(tensorboard_dir, exist_ok=True)
 os.makedirs(oof_dir, exist_ok=True)
-optimizer = tfa.optimizers.AdamW(learning_rate=initial_lr, weight_decay=0.0001)
-cls = model_definitions.__dict__[experiment['model']](experiment['timesteps'], experiment['nions'])
-cls.compile(optimizer=optimizer, loss=tf.keras.losses.BinaryCrossentropy(label_smoothing=labels_smooth))
-scheduler = CosineAnnealingWarmRestarts(initial_learning_rate=initial_lr, first_decay_steps=scheduler_period, t_mul=scheduler_t_mult)
+optimizer = tfa.optimizers.AdamW(learning_rate=train_params['initial_lr'], weight_decay=0.0001)
+cls = model_definitions.__dict__[model_params['model_cls']](dataset_params['timesteps'], dataset_params['nions'])
+cls.compile(optimizer=optimizer, loss=tf.keras.losses.BinaryCrossentropy(label_smoothing=train_params['labels_smooth']))
+scheduler = CosineAnnealingWarmRestarts(initial_learning_rate=train_params['initial_lr'],
+                                        first_decay_steps=train_params['scheduler_period'],
+                                        t_mul=train_params['scheduler_t_mult'])
 
 callbacks = [tf.keras.callbacks.LearningRateScheduler(scheduler),
              tf.keras.callbacks.ModelCheckpoint(
@@ -56,27 +47,27 @@ callbacks = [tf.keras.callbacks.LearningRateScheduler(scheduler),
                 save_freq=20)]
 
 train_ds = MarsSpectrometryDataset(
-    fold=experiment['fold'],
+    fold=fold,
     is_training=True,
     dataset_type='train',
-    time_step=experiment['time_step'],
-    max_time=experiment['max_time'],
-    max_mass=experiment['max_mass'],
-    min_mass=experiment['min_mass'])
+    time_step=dataset_params['time_step'],
+    max_time=dataset_params['max_time'],
+    max_mass=dataset_params['max_mass'],
+    min_mass=dataset_params['min_mass'])
 
 val_ds = MarsSpectrometryDataset(
-    fold=experiment['fold'],
+    fold=fold,
     is_training=False,
     dataset_type='train',
-    time_step=experiment['time_step'],
-    max_time=experiment['max_time'],
-    max_mass=experiment['max_mass'],
-    min_mass=experiment['min_mass'])
+    time_step=dataset_params['time_step'],
+    max_time=dataset_params['max_time'],
+    max_mass=dataset_params['max_mass'],
+    min_mass=dataset_params['min_mass'])
 
 history = cls.fit(
     train_ds,
     verbose=1,
-    epochs=nb_epochs,
+    epochs=train_params['nb_epochs'],
     batch_size=8,
     validation_data=val_ds,
     callbacks=callbacks
@@ -95,15 +86,15 @@ test_ds = MarsSpectrometryDataset(
     fold=0,
     is_training=False,
     dataset_type='test_val',
-    time_step=experiment['time_step'],
-    max_time=experiment['max_time'],
-    max_mass=experiment['max_mass'],
-    min_mass=experiment['min_mass'])
+    time_step=dataset_params['time_step'],
+    max_time=dataset_params['max_time'],
+    max_mass=dataset_params['max_mass'],
+    min_mass=dataset_params['min_mass'])
 
 preds = np.zeros(sub[config.targetcols].shape)
 for j in range(config.tta):
     preds += cls.predict(test_ds) / config.tta
 
 sub[config.targetcols] = preds
-validation.to_csv(f"validation/validation_{experiment['model']}_fold{experiment['fold']}.csv", index=False, header=True)
-sub.to_csv(f"output/submission_{experiment['model']}_fold{experiment['fold']}.csv", index=False, header=True)
+validation.to_csv(f"validation/validation_{model_params['model_cls']}_fold{fold}.csv", index=False, header=True)
+sub.to_csv(f"output/submission_{model_params['model_cls']}_fold{fold}.csv", index=False, header=True)
