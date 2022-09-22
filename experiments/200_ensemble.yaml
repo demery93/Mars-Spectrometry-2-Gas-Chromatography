@@ -1,0 +1,11 @@
+###################
+## Model options
+model_params:
+  model_cls: "ensemble"
+
+
+
+###################
+## Experiment params
+experiment_params:
+  models: ["lstm","cnn1d"]
