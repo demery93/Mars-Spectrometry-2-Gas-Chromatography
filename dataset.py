@@ -100,8 +100,17 @@ class MarsSpectrometryDataset(tf.keras.utils.Sequence):
     def render_item(self, sample_id):
         t = self.samples_data[sample_id]
         step_pos = np.where(np.diff(t['mass'].values, prepend=0) < 0)[0]
-        intensity = t['intensity_sub_min'].values
         mass = t['mass'].values.astype(int)
+
+        prob_sub = np.random.rand(4)
+        prob_sub = prob_sub / prob_sub.sum()
+
+        intensity = (t['intensity_sub_min'].values * prob_sub[0] +
+                     t['intensity_sub_q5'].values * prob_sub[1] +
+                     t['intensity_sub_q10'].values * prob_sub[2] +
+                     t['intensity_sub_q20'].values * prob_sub[3]
+                     )
+
 
         p = render_image(time=t['time'].values,
                          mass=mass,

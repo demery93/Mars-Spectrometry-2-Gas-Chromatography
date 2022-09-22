@@ -8,6 +8,12 @@ import torch
 import math
 import warnings
 import tensorflow as tf
+import yaml
+
+def load_config_data(experiment_name: str, experiments_dir='experiments') -> dict:
+    with open(f"{experiments_dir}/{experiment_name}.yaml") as f:
+        cfg: dict = yaml.load(f, Loader=yaml.FullLoader)
+    return cfg
 
 def aggregated_log_loss(ytrue, ypred):
     scores = []

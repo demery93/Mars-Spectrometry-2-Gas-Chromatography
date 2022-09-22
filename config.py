@@ -17,6 +17,7 @@ class ParamConfig:
         self.test_data_path = 'input/test_features/'
         self.processed_feature_path = 'processed/features'
         self.train_label_path = 'input/train_labels.csv'
+        self.output_path = "output/"
         self.targetcols = ['aromatic', 'hydrocarbon', 'carboxylic_acid','nitrogen_bearing_compound',
                            'chlorine_bearing_compound','sulfur_bearing_compound', 'alcohol', 'other_oxygen_bearing_compound','mineral']
 

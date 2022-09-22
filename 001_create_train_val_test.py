@@ -8,7 +8,7 @@ from tqdm import tqdm
 from config import config
 from utils import fill_t_bins
 import multiprocessing
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold, StratifiedKFold
 
 def preprocess(src, dst):
     '''
@@ -31,6 +31,10 @@ def preprocess(src, dst):
         t_cur = t
 
         i_sub_min = intensity - np.min(intensity)
+        i_sub_q5 = intensity - np.quantile(intensity, 0.05)
+        i_sub_q10 = intensity - np.quantile(intensity, 0.10)
+        i_sub_q20 = intensity - np.quantile(intensity, 0.20)
+
 
         for i, ti in enumerate(t_cur):
             res.append({
@@ -38,6 +42,9 @@ def preprocess(src, dst):
                 'mass': m,
                 'intensity': intensity[i],
                 'intensity_sub_min': i_sub_min[i],
+                'intensity_sub_q5': i_sub_q5[i],
+                'intensity_sub_q10': i_sub_q10[i],
+                'intensity_sub_q20': i_sub_q20[i],
             })
             # res.append([ti, m, a_cur[i], a_no_bg[i], a_sub_min[i], a_sub_q5[i], a_sub_q10[i], a_sub_q20[i]])
 
@@ -74,7 +81,7 @@ def split_to_folds():
 
     metadata = metadata[metadata.split == 'train']
     metadata['fold'] = -1
-    for fold, (train_index, test_index) in enumerate(kf.split(metadata.sample_id, metadata.sample_id)):
+    for fold, (train_index, test_index) in enumerate(kf.split(metadata.sample_id, metadata.derivatized.fillna(0))):
         print(fold, test_index)
         metadata.loc[test_index, 'fold'] = fold
 

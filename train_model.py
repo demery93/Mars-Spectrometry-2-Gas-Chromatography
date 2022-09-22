@@ -7,14 +7,15 @@ import tensorflow as tf
 import tensorflow_addons as tfa
 from dataset import MarsSpectrometryDataset
 from utils import aggregated_log_loss, CosineAnnealingWarmRestarts
+import os
 
-nb_epochs = 35
+nb_epochs = 110
 optimizers = 'adamW'
 scheduler = 'CosineAnnealingWarmRestarts'
 scheduler_period = 16
 scheduler_t_mult =  1.41421
 
-initial_lr = 0.0005
+initial_lr = 0.001
 save_period = 10
 grad_clip = 64
 labels_smooth = 0.001
@@ -31,9 +32,16 @@ experiment = {"time_step":1,
               "max_mass":250,
               "min_mass":1,
               "nions":249,
-              "model":'cnn1d',
+              "model":'lstm',
               'fold':0}
 
+checkpoints_dir = f"{config.output_path}/checkpoints/{experiment['model']}_{experiment['fold']}"
+#tensorboard_dir = f"{config.output_path}/tensorboard/{experiment['model']}_{experiment['fold']}"
+#logger = tf.summary.SummaryWriter()
+oof_dir = f"{config.output_path}/oof/{experiment['model']}_{experiment['fold']}"
+os.makedirs(checkpoints_dir, exist_ok=True)
+#os.makedirs(tensorboard_dir, exist_ok=True)
+os.makedirs(oof_dir, exist_ok=True)
 optimizer = tfa.optimizers.AdamW(learning_rate=initial_lr, weight_decay=0.0001)
 cls = model_definitions.__dict__[experiment['model']](experiment['timesteps'], experiment['nions'])
 cls.compile(optimizer=optimizer, loss=tf.keras.losses.BinaryCrossentropy(label_smoothing=labels_smooth))
@@ -41,11 +49,12 @@ scheduler = CosineAnnealingWarmRestarts(initial_learning_rate=initial_lr, first_
 
 callbacks = [tf.keras.callbacks.LearningRateScheduler(scheduler),
              tf.keras.callbacks.ModelCheckpoint(
-                filepath='model_paths',
+                filepath=checkpoints_dir,
                 save_weights_only=True,
                 save_best_only=False,
                 monitor='val_loss',
                 save_freq=20)]
+
 train_ds = MarsSpectrometryDataset(
     fold=experiment['fold'],
     is_training=True,
@@ -97,4 +106,4 @@ for j in range(config.tta):
 
 sub[config.targetcols] = preds
 validation.to_csv(f"validation/validation_{experiment['model']}_fold{experiment['fold']}.csv", index=False, header=True)
-sub.to_csv(f"output/submission_{experiment['model']})fold{experiment['fold']}.csv", index=False, header=True)
+sub.to_csv(f"output/submission_{experiment['model']}_fold{experiment['fold']}.csv", index=False, header=True)
