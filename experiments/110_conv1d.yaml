@@ -1,7 +1,7 @@
 ###################
 ## Model options
 model_params:
-  model_cls: "lstm"
+  model_cls: "cnn1d"
 
 ###################
 ## Dataset options
@@ -17,7 +17,7 @@ dataset_params:
 ###################
 ## Train params
 train_params:
-  nb_epochs: 110
+  nb_epochs: 30
   optimizer: adamW
   scheduler: CosineAnnealingWarmRestarts
   scheduler_period: 16

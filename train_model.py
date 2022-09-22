@@ -24,13 +24,15 @@ sub = pd.read_csv("input/submission_format.csv")
 labels.set_index('sample_id', inplace=True)
 oof = labels.copy()
 
-checkpoints_dir = f"{config.output_path}/checkpoints/{model_params['model_cls']}_{fold}"
+checkpoints_dir = f"{config.output_path}/checkpoints/{model_params['model_cls']}_{fold}/"
 #tensorboard_dir = f"{config.output_path}/tensorboard/{experiment['model']}_{experiment['fold']}"
 #logger = tf.summary.SummaryWriter()
 oof_dir = f"{config.output_path}/oof/{model_params['model_cls']}_{fold}"
+sub_dir = f"{config.output_path}/sub/{model_params['model_cls']}_{fold}"
 os.makedirs(checkpoints_dir, exist_ok=True)
 #os.makedirs(tensorboard_dir, exist_ok=True)
 os.makedirs(oof_dir, exist_ok=True)
+os.makedirs(sub_dir, exist_ok=True)
 optimizer = tfa.optimizers.AdamW(learning_rate=train_params['initial_lr'], weight_decay=0.0001)
 cls = model_definitions.__dict__[model_params['model_cls']](dataset_params['timesteps'], dataset_params['nions'])
 cls.compile(optimizer=optimizer, loss=tf.keras.losses.BinaryCrossentropy(label_smoothing=train_params['labels_smooth']))
@@ -96,5 +98,5 @@ for j in range(config.tta):
     preds += cls.predict(test_ds) / config.tta
 
 sub[config.targetcols] = preds
-validation.to_csv(f"validation/validation_{model_params['model_cls']}_fold{fold}.csv", index=False, header=True)
-sub.to_csv(f"output/submission_{model_params['model_cls']}_fold{fold}.csv", index=False, header=True)
+validation.to_csv(f"{oof_dir}/{model_params['model_cls']}_fold{fold}.csv", index=False, header=True)
+sub.to_csv(f"{sub_dir}/{model_params['model_cls']}_fold{fold}.csv", index=False, header=True)

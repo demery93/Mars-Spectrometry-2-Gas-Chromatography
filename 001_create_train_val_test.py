@@ -10,7 +10,7 @@ from utils import fill_t_bins
 import multiprocessing
 from sklearn.model_selection import KFold, StratifiedKFold
 
-def preprocess(src, dst):
+def preprocess(src, dst, is_derivatized):
     '''
 
     This function iterates through the data directories, processes each sample, and stores it in an intensity
@@ -28,19 +28,39 @@ def preprocess(src, dst):
         t = sample[sample["mass"] == m]["time"].values
         intensity = sample[sample["mass"] == m]["intensity"].values
 
-        t_cur = t
+        t_bins, i_bins = fill_t_bins(t, intensity)
+        if len(t_bins) < 4:
+            print(f'Skip m {m} i {len(intensity)} t_bins {len(t_bins)} {src} is derivatized: {is_derivatized}')
+            continue
 
-        i_sub_min = intensity - np.min(intensity)
-        i_sub_q5 = intensity - np.quantile(intensity, 0.05)
-        i_sub_q10 = intensity - np.quantile(intensity, 0.10)
-        i_sub_q20 = intensity - np.quantile(intensity, 0.20)
+        nan_values = ~np.isfinite(i_bins)
+        if nan_values.sum() > 0:
+            print(f'{src} nan: {nan_values.sum()}')
+            t_bins = t_bins[~nan_values]
+            i_bins = i_bins[~nan_values]
+
+            if len(i_bins) < 4:
+                print(f'No non null values: count {len(i_bins)} m {m} {src}  is derivatized: {is_derivatized}')
+                continue
+
+        if is_derivatized:
+            t_cur = t
+            i_cur = intensity
+        else:
+            t_cur = t_bins.copy()
+            i_cur = i_bins.copy()
+
+        i_sub_min = i_cur - np.min(i_cur)
+        i_sub_q5 = i_cur - np.quantile(i_cur, 0.05)
+        i_sub_q10 = i_cur - np.quantile(i_cur, 0.10)
+        i_sub_q20 = i_cur - np.quantile(i_cur, 0.20)
 
 
         for i, ti in enumerate(t_cur):
             res.append({
                 'time': ti,
                 'mass': m,
-                'intensity': intensity[i],
+                'intensity': i_cur[i],
                 'intensity_sub_min': i_sub_min[i],
                 'intensity_sub_q5': i_sub_q5[i],
                 'intensity_sub_q10': i_sub_q10[i],
@@ -70,13 +90,13 @@ def preprocess_all_features():
         src_dir = f'input/{row["split"]}_features'
         sample_id = row["sample_id"]
         is_derivatized = row["derivatized"] == 1
-        requests.append([f'{src_dir}/{sample_id}.csv', f'{dst_dir}/{sample_id}.f'])
+        requests.append([f'{src_dir}/{sample_id}.csv', f'{dst_dir}/{sample_id}.f', is_derivatized])
         #preprocess(f'{src_dir}/{sample_id}.csv', f'{dst_dir}/{sample_id}.csv')
 
     pool.starmap(preprocess, requests)
 
 def split_to_folds():
-    kf = KFold(n_splits=config.n_folds, random_state=config.seed, shuffle=True)
+    kf = StratifiedKFold(n_splits=config.n_folds, random_state=config.seed, shuffle=True)
     metadata = pd.read_csv("input/metadata.csv")
 
     metadata = metadata[metadata.split == 'train']
