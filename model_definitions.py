@@ -1,6 +1,7 @@
 import tensorflow as tf
 import keras
 import tfimm
+from einops.layers.keras import Rearrange
 
 def cnn(timesteps, nions):
     inp = tf.keras.layers.Input(shape=(timesteps, nions))
@@ -78,19 +79,23 @@ def cnn1d(timesteps, nions):
     out = tf.keras.layers.Dense(9, activation='sigmoid')(x)
     model = tf.keras.models.Model(inputs=inp, outputs=out)
     return model
-
+tfimm.list_models(pretrained=True)
 def resnet34(timesteps, nions):
     inp = tf.keras.layers.Input(shape=(timesteps, nions))
 
     x0 = tf.keras.layers.Reshape((timesteps, nions, 1))(inp)
+    x0 = Rearrange("b t n c -> b n t c")(x0)
 
-    m = tfimm.create_model("resnet34", pretrained=True, in_channels=1)
+    m = tfimm.create_model("resnet34", in_channels=1, pretrained=True)
     res, features = m(x0, return_features=True)
     x = features['features']
 
-    p1 = tf.keras.layers.GlobalAveragePooling2D()(x)
-    p2 = tf.keras.layers.GlobalMaxPooling2D()(x)
+    p1 = tf.keras.layers.AveragePooling2D(x.shape[1:3])(x)
+    p2 = tf.keras.layers.MaxPooling2D(x.shape[1:3])(x)
+
     x = tf.keras.layers.concatenate([p1, p2])
+    x = tf.keras.layers.Flatten()(x)
+    x = tf.keras.layers.Dropout(0.5)(x)
 
     out = tf.keras.layers.Dense(9, activation='sigmoid')(x)
     model = tf.keras.models.Model(inputs=inp, outputs=out)

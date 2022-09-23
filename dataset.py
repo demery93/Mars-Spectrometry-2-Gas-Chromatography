@@ -21,7 +21,7 @@ def render_image(time: np.ndarray,
     max_time_id = int((max_time - min_time) // time_step)
     nions = (max_mass - min_mass)
 
-    res = np.zeros((nions, int((max_time - min_time)//time_step)), dtype=np.float32) - 1
+    res = np.zeros((int((max_time - min_time)//time_step), nions), dtype=np.float32) - 1
     step_time = [np.mean(v) for v in np.split(time, step_pos)][1:-1]
     time_bands = [[] for t in range(int(max_time // time_step) + 1)]  # temp: list of steps
     for step, t in enumerate(step_time):
@@ -42,7 +42,7 @@ def render_image(time: np.ndarray,
         src_step = np.random.choice(src_steps)
 
         for i in range(step_pos[src_step], step_pos[src_step + 1]):
-            res[mass[i] - config.min_mass, time_id] = intensity[i]
+            res[time_id, mass[i] - config.min_mass] = intensity[i]
 
     res = res / res.max()
     return res
@@ -99,7 +99,7 @@ class MarsSpectrometryDataset(tf.keras.utils.Sequence):
         print(f'Training {is_training}, samples: {len(self.sample_ids)} ')
 
     def __len__(self):
-        return len(self.sample_ids)
+        return len(self.sample_ids) // self.batch_size
 
     def render_item(self, sample_id):
         t = self.samples_data[sample_id]
@@ -132,13 +132,30 @@ class MarsSpectrometryDataset(tf.keras.utils.Sequence):
         return p
 
     def __getitem__(self, item):
-        sample_id = self.sample_ids[item]
-        labels = self.labels.loc[sample_id]
+        batch = self.sample_ids[item * self.batch_size:(item + 1) * self.batch_size]
+        labels = self.labels.loc[batch]
         label_values = [labels[k] for k in config.targetcols]
         label_values = np.array(label_values, dtype=np.float32)
-        metadata = self.metadata.loc[sample_id]
+        metadata = self.metadata.loc[batch]
+        X = self.__get_data(batch)
+        return X, label_values.T
 
-        p = self.render_item(sample_id)
-        p = p.astype(np.float32)
+    def __get_data(self, batch):
+        X=[]
+        for sample_id in batch:
+            p = self.render_item(sample_id)
+            p = p.astype(np.float32)
+            X.append(p)
 
-        return (p.reshape((1, self.timesteps, self.nions)), label_values.reshape((1,9)))
+        X = np.asarray(X)
+        return X
+
+    def load_val(self):
+        X=[]
+        for sample_id in self.sample_ids:
+            p = self.render_item(sample_id)
+            p = p.astype(np.float32)
+            X.append(p)
+
+        X = np.asarray(X)
+        return X
