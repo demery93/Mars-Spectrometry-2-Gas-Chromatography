@@ -28,3 +28,10 @@ train_params:
   save_period: 10
   grad_clip: 64
   labels_smooth: 0.001
+  batch_size: 8
+  
+###################
+## Predict params
+predict_params:
+  tta: 16
+  batch_size: 4
