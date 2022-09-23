@@ -91,6 +91,23 @@ def resnet34(timesteps, nions):
     p1 = tf.keras.layers.GlobalAveragePooling2D()(x)
     p2 = tf.keras.layers.GlobalMaxPooling2D()(x)
     x = tf.keras.layers.concatenate([p1, p2])
+
+    out = tf.keras.layers.Dense(9, activation='sigmoid')(x)
+    model = tf.keras.models.Model(inputs=inp, outputs=out)
+    return model
+
+def resnet34_(timesteps, nions):
+    inp = tf.keras.layers.Input(shape=(timesteps, nions))
+
+    x0 = tf.keras.layers.Reshape((timesteps, nions, 1))(inp)
+
+    m = tfimm.create_model("resnet34", pretrained=True, in_channels=1, nb_classes=9)
+    res, features = m(x0, return_features=True)
+    x = features['features']
+
+    p1 = tf.keras.layers.GlobalAveragePooling2D()(x)
+    p2 = tf.keras.layers.GlobalMaxPooling2D()(x)
+    x = tf.keras.layers.concatenate([p1, p2])
     x = tf.keras.layers.Dense(128, activation='relu')(x)
 
     out = tf.keras.layers.Dense(9, activation='sigmoid')(x)

@@ -1,8 +1,8 @@
 ###################
 ## Model options
 model_params:
-  model_name: "110_cnn1d"
-  model_cls: "cnn1d"
+  model_name: "130_resnet34"
+  model_cls: "resnet34"
 
 ###################
 ## Dataset options
@@ -19,8 +19,8 @@ dataset_params:
 ###################
 ## Train params
 train_params:
-  nb_epochs: 30
-  optimizer: adamW
+  nb_epochs: 110
+  optimizer: sgd
   scheduler: CosineAnnealingWarmRestarts
   scheduler_period: 16
   scheduler_t_mult: 1.41421

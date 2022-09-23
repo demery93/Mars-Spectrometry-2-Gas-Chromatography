@@ -1,7 +1,7 @@
 ###################
 ## Model options
 model_params:
-  model_name: "110_cnn1d"
+  model_name: "111_cnn1d"
   model_cls: "cnn1d"
 
 ###################
@@ -13,7 +13,7 @@ dataset_params:
   max_mass: 250
   min_mass: 1
   nions: 249
-  norm_to_one: False
+  norm_to_one: True
 
 
 ###################

@@ -1,6 +1,7 @@
 ###################
 ## Model options
 model_params:
+  model_name: "ensemble"
   model_cls: "ensemble"
 
 
@@ -8,4 +9,4 @@ model_params:
 ###################
 ## Experiment params
 experiment_params:
-  models: ["lstm","cnn1d"]
+  models: ["100_lstm","101_lstm","110_conv1d","111_conv1d"]

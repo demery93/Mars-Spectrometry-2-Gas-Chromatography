@@ -55,7 +55,9 @@ class MarsSpectrometryDataset(tf.keras.utils.Sequence):
                  time_query_range=0,
                  max_mass=250,
                  min_mass=13,
-                 max_time=50
+                 max_time=50,
+                 norm_to_one=False,
+                 batch_size=1,
                  ):
 
         self.max_time = max_time
@@ -65,8 +67,10 @@ class MarsSpectrometryDataset(tf.keras.utils.Sequence):
         self.time_query_range = time_query_range
         self.nions = max_mass - min_mass
         self.timesteps = int(max_time // time_step)
+        self.norm_to_one = norm_to_one
         self.sample_ids = []
         self.metadata = pd.read_csv("input/metadata.csv", index_col='sample_id')
+        self.batch_size=batch_size
 
         if dataset_type == 'train':
             folds = pd.read_csv('processed/folds.csv')
@@ -122,6 +126,9 @@ class MarsSpectrometryDataset(tf.keras.utils.Sequence):
                          max_mass = self.max_mass
                          )
         p[:, :] *= 2 ** np.random.normal(loc=0, scale=0.5, size=(p.shape[0], 1))
+        if(self.norm_to_one):
+            p = p / p.sum(axis=0).reshape((1, -1))
+
         return p
 
     def __getitem__(self, item):

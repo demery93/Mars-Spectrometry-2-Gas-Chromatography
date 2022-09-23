@@ -1,8 +1,8 @@
 ###################
 ## Model options
 model_params:
-  model_name: "110_cnn1d"
-  model_cls: "cnn1d"
+  model_name: "101_lstm"
+  model_cls: "lstm"
 
 ###################
 ## Dataset options
@@ -13,13 +13,13 @@ dataset_params:
   max_mass: 250
   min_mass: 1
   nions: 249
-  norm_to_one: False
+  norm_to_one: 1
 
 
 ###################
 ## Train params
 train_params:
-  nb_epochs: 30
+  nb_epochs: 110
   optimizer: adamW
   scheduler: CosineAnnealingWarmRestarts
   scheduler_period: 16

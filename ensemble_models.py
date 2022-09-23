@@ -11,12 +11,11 @@ experiment_params = cfg['experiment_params']
 folds = pd.read_csv("processed/folds.csv")
 labels = pd.read_csv("input/train_labels.csv", index_col=['sample_id'])
 sub = pd.read_csv("input/submission_format.csv", index_col=['sample_id'])
+oof = labels.copy()
 for c in sub.columns:
     sub[c] = 0
-
-oof = labels.copy()
-for c in labels.columns:
     oof[c] = 0
+
 for model in experiment_params['models']:
     sub_model = sub.copy()
     oof_model = oof.copy()
@@ -38,5 +37,5 @@ for model in experiment_params['models']:
 
 print(f"CV Score for Model {model_params['model_cls']}: {aggregated_log_loss(labels.values, oof.values)}")  # 0.1665458760452786
 
-os.makedirs(f"{config.output_path}/sub/{model_params['model_cls']}", exist_ok=True)
-sub.reset_index().to_csv(f"{config.output_path}/sub/{model_params['model_cls']}/submission.csv", index=False, header=True)
+os.makedirs(f"{config.output_path}/sub/{model_params['model_name']}", exist_ok=True)
+sub.reset_index().to_csv(f"{config.output_path}/sub/{model_params['model_name']}/submission.csv", index=False, header=True)

@@ -1,6 +1,7 @@
 ###################
 ## Model options
 model_params:
+  model_name: "100_lstm"
   model_cls: "lstm"
 
 ###################
