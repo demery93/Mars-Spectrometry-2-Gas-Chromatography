@@ -11,13 +11,16 @@ import os
 import sys
 
 fold = 0
-experiment_name = "130_resnet34"
+experiment_name = "140_3cls_resnet34"
 cfg = load_config_data(experiment_name)
 
 model_params = cfg['model_params']
 dataset_params = cfg['dataset_params']
 train_params = cfg['train_params']
 predict_params = cfg['predict_params']
+
+timesteps = int(dataset_params['max_time'] // dataset_params['time_step'])
+nions = int(dataset_params['max_mass'] - dataset_params['min_mass'])
 
 labels = pd.read_csv("input/train_labels.csv")
 sub = pd.read_csv("input/submission_format.csv")
@@ -37,7 +40,7 @@ if(train_params['optimizer'] == 'adamW'):
     optimizer = tfa.optimizers.AdamW(learning_rate=train_params['initial_lr'], weight_decay=0.0001)
 if(train_params['optimizer'] == 'sgd'):
     optimizer = tf.keras.optimizers.SGD(learning_rate=train_params['initial_lr'], momentum=0.9, nesterov=True, clipnorm=64)
-cls = model_definitions.__dict__[model_params['model_cls']](dataset_params['timesteps'], dataset_params['nions'])
+cls = model_definitions.__dict__[model_params['model_cls']](timesteps, nions)
 cls.compile(optimizer=optimizer, loss=tf.keras.losses.BinaryCrossentropy(label_smoothing=train_params['labels_smooth']))
 scheduler = CosineAnnealingWarmRestarts(initial_learning_rate=train_params['initial_lr'],
                                         first_decay_steps=train_params['scheduler_period'],
@@ -55,25 +58,29 @@ train_ds = MarsSpectrometryDataset(
     fold=fold,
     is_training=True,
     dataset_type='train',
-    time_step=dataset_params['time_step'],
+    batch_size=train_params['batch_size'],
+    **dataset_params)
+
+'''    time_step=dataset_params['time_step'],
     max_time=dataset_params['max_time'],
     max_mass=dataset_params['max_mass'],
     min_mass=dataset_params['min_mass'],
-    norm_to_one=dataset_params['norm_to_one'],
-    batch_size=train_params['batch_size'])
+    norm_to_one=dataset_params['norm_to_one'],'''
+
 
 val_ds = MarsSpectrometryDataset(
     fold=fold,
     is_training=False,
     dataset_type='train',
-    time_step=dataset_params['time_step'],
+    batch_size=predict_params['batch_size'],
+    **dataset_params)
+'''    time_step=dataset_params['time_step'],
     max_time=dataset_params['max_time'],
     max_mass=dataset_params['max_mass'],
     min_mass=dataset_params['min_mass'],
     norm_to_one=dataset_params['norm_to_one'],
-    batch_size=predict_params['batch_size'])
+    )'''
 
-tmp = val_ds.load_val()
 history = cls.fit(
     train_ds,
     verbose=1,
@@ -90,4 +97,5 @@ validation[validation.columns] = val_pred
 
 y = labels[labels.index.isin(val_ds.sample_ids)].values
 print(aggregated_log_loss(y, validation.values))
-#0.17157648474120743
+#0.13239429253404586
+#0.19079846660080224

@@ -26,7 +26,7 @@ def fill_t_bins(t, intensity, step=config.sample_rate):
     t_min = config.min_time
     t_max = config.max_time
 
-    t_idx = list(range(t_min // step, t_max // step))
+    t_idx = list(range(int(t_min // step), int(t_max // step)))
     t_bins = np.array([(i + 0.5) * step for i in t_idx])
 
     bins = []
@@ -221,9 +221,7 @@ def check_CosineAnnealingWarmRestarts():
 
     lrs = []
     for _ in range(110):
-        optimizer
-        lrs.append(optimizer.lr)
-        scheduler.step()
+        lrs.append(scheduler.lr)
 
     # 251: 77
     # 371: 49

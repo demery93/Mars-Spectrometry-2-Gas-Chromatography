@@ -17,11 +17,15 @@ cfg = load_config_data(experiment_name)
 model_params = cfg['model_params']
 dataset_params = cfg['dataset_params']
 train_params = cfg['train_params']
+predict_params = cfg['predict_params']
 
 labels = pd.read_csv("input/train_labels.csv")
 sub = pd.read_csv("input/submission_format.csv")
 labels.set_index('sample_id', inplace=True)
 oof = labels.copy()
+
+timesteps = int(dataset_params['max_time'] // dataset_params['time_step'])
+nions = int(dataset_params['max_mass'] - dataset_params['min_mass'])
 
 checkpoints_dir = f"{config.output_path}/checkpoints/{model_params['model_name']}_{fold}/"
 #tensorboard_dir = f"{config.output_path}/tensorboard/{experiment['model']}_{experiment['fold']}"
@@ -36,7 +40,7 @@ if(train_params['optimizer'] == 'adamW'):
     optimizer = tfa.optimizers.AdamW(learning_rate=train_params['initial_lr'], weight_decay=0.0001)
 if(train_params['optimizer'] == 'sgd'):
     optimizer = tf.keras.optimizers.SGD(learning_rate=train_params['initial_lr'], momentum=0.9, nesterov=True)
-cls = model_definitions.__dict__[model_params['model_cls']](dataset_params['timesteps'], dataset_params['nions'])
+cls = model_definitions.__dict__[model_params['model_cls']](timesteps, nions)
 cls.compile(optimizer=optimizer, loss=tf.keras.losses.BinaryCrossentropy(label_smoothing=train_params['labels_smooth']))
 scheduler = CosineAnnealingWarmRestarts(initial_learning_rate=train_params['initial_lr'],
                                         first_decay_steps=train_params['scheduler_period'],
@@ -54,21 +58,15 @@ train_ds = MarsSpectrometryDataset(
     fold=fold,
     is_training=True,
     dataset_type='train',
-    time_step=dataset_params['time_step'],
-    max_time=dataset_params['max_time'],
-    max_mass=dataset_params['max_mass'],
-    min_mass=dataset_params['min_mass'],
-    norm_to_one=dataset_params['norm_to_one'])
+    batch_size=train_params['batch_size'],
+    **dataset_params)
 
 val_ds = MarsSpectrometryDataset(
     fold=fold,
     is_training=False,
     dataset_type='train',
-    time_step=dataset_params['time_step'],
-    max_time=dataset_params['max_time'],
-    max_mass=dataset_params['max_mass'],
-    min_mass=dataset_params['min_mass'],
-    norm_to_one=dataset_params['norm_to_one'])
+    batch_size=predict_params['batch_size'],
+    **dataset_params)
 
 history = cls.fit(
     train_ds,
@@ -78,9 +76,10 @@ history = cls.fit(
     validation_data=val_ds,
     callbacks=callbacks
 )
+cls.save_weights(f"trained_models/{model_params['model_name']}_{fold}.h5")
 val_pred = np.zeros((len(val_ds.sample_ids), 9))
-for i in range(config.tta):
-    val_pred += cls.predict(val_ds) / config.tta
+for i in range(predict_params['tta']):
+    val_pred += cls.predict(val_ds.load_val(), batch_size=predict_params['batch_size']) / predict_params['tta']
 
 validation = labels[labels.index.isin(val_ds.sample_ids)]
 validation[validation.columns] = val_pred
@@ -89,18 +88,15 @@ y = labels[labels.index.isin(val_ds.sample_ids)].values
 print(aggregated_log_loss(y, validation.values))
 
 test_ds = MarsSpectrometryDataset(
-    fold=0,
+    fold=fold,
     is_training=False,
     dataset_type='test_val',
-    time_step=dataset_params['time_step'],
-    max_time=dataset_params['max_time'],
-    max_mass=dataset_params['max_mass'],
-    min_mass=dataset_params['min_mass'],
-    norm_to_one=dataset_params['norm_to_one'])
+    batch_size=predict_params['batch_size'],
+    **dataset_params)
 
 preds = np.zeros(sub[config.targetcols].shape)
 for j in range(config.tta):
-    preds += cls.predict(test_ds) / config.tta
+    preds += cls.predict(test_ds.load_val()) / config.tta
 
 sub[config.targetcols] = preds
 validation.to_csv(f"{oof_dir}/{model_params['model_name']}_fold{fold}.csv", index=False, header=True)

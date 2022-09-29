@@ -38,11 +38,8 @@ def cnn(timesteps, nions):
 def lstm(timesteps, nions):
     inp = tf.keras.layers.Input(shape=(timesteps, nions))
 
-    x = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(100, return_sequences=False))(inp)
-    x = tf.keras.layers.Dense(512, activation='relu')(x)
-    x = tf.keras.layers.Dense(256, activation='relu')(x)
-    x = tf.keras.layers.Dense(128, activation='relu')(x)
-
+    x = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(1024, return_sequences=False))(inp)
+    x = tf.keras.layers.Dropout(0.5)(x)
     out = tf.keras.layers.Dense(9, activation='sigmoid')(x)
     model = tf.keras.models.Model(inputs=inp, outputs=out)
     return model
@@ -64,11 +61,11 @@ def cnn2d(timesteps, nions):
 def cnn1d(timesteps, nions):
     inp = tf.keras.layers.Input(shape=(timesteps, nions))
 
-    c1 = tf.keras.layers.Conv1D(16, 2, dilation_rate=2 ** 0, padding='same')(inp)
-    c2 = tf.keras.layers.Conv1D(16, 2, dilation_rate=2 ** 1, padding='same')(inp)
-    c3 = tf.keras.layers.Conv1D(16, 2, dilation_rate=2 ** 2, padding='same')(inp)
-    c4 = tf.keras.layers.Conv1D(16, 2, dilation_rate=2 ** 3, padding='same')(inp)
-    c5 = tf.keras.layers.Conv1D(16, 2, dilation_rate=2 ** 4, padding='same')(inp)
+    c1 = tf.keras.layers.Conv1D(50, 3, dilation_rate=2 ** 0, padding='same')(inp)
+    c2 = tf.keras.layers.Conv1D(50, 3, dilation_rate=2 ** 1, padding='same')(inp)
+    c3 = tf.keras.layers.Conv1D(50, 3, dilation_rate=2 ** 2, padding='same')(inp)
+    c4 = tf.keras.layers.Conv1D(50, 3, dilation_rate=2 ** 3, padding='same')(inp)
+    c5 = tf.keras.layers.Conv1D(50, 3, dilation_rate=2 ** 4, padding='same')(inp)
 
     c = tf.keras.layers.concatenate([c1, c2, c3, c4, c5])
     x = tf.keras.layers.Flatten()(c)
@@ -79,7 +76,7 @@ def cnn1d(timesteps, nions):
     out = tf.keras.layers.Dense(9, activation='sigmoid')(x)
     model = tf.keras.models.Model(inputs=inp, outputs=out)
     return model
-tfimm.list_models(pretrained=True)
+
 def resnet34(timesteps, nions):
     inp = tf.keras.layers.Input(shape=(timesteps, nions))
 
@@ -101,20 +98,18 @@ def resnet34(timesteps, nions):
     model = tf.keras.models.Model(inputs=inp, outputs=out)
     return model
 
-def resnet34_(timesteps, nions):
-    inp = tf.keras.layers.Input(shape=(timesteps, nions))
+def SimpleCls3(timesteps, nions):
+    inp = tf.keras.layers.Input(shape=(timesteps, nions, 3))
 
-    x0 = tf.keras.layers.Reshape((timesteps, nions, 1))(inp)
-
-    m = tfimm.create_model("resnet34", pretrained=True, in_channels=1, nb_classes=9)
-    res, features = m(x0, return_features=True)
-    x = features['features']
+    m = tfimm.create_model("resnet34", pretrained=True, in_channels=3, nb_classes=9)
+    out = m(inp)
+    '''x = features['features']
 
     p1 = tf.keras.layers.GlobalAveragePooling2D()(x)
     p2 = tf.keras.layers.GlobalMaxPooling2D()(x)
     x = tf.keras.layers.concatenate([p1, p2])
-    x = tf.keras.layers.Dense(128, activation='relu')(x)
+    x = tf.keras.layers.Dense(128, activation='relu')(x)'''
 
-    out = tf.keras.layers.Dense(9, activation='sigmoid')(x)
+    #out = tf.keras.layers.Dense(9, activation='sigmoid')(x)
     model = tf.keras.models.Model(inputs=inp, outputs=out)
     return model

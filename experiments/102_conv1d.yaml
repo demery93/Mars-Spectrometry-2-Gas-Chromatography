@@ -1,30 +1,41 @@
 ###################
 ## Model options
 model_params:
-  model_name: "101_lstm"
-  model_cls: "lstm"
+  model_name: "102_conv1d"
+  model_cls: "cnn1d"
 
 ###################
 ## Dataset options
 dataset_params:
   time_step: 1
   max_time: 50
-  timesteps: 50
   max_mass: 250
   min_mass: 1
-  nions: 249
-  norm_to_one: 1
+  norm_to_one: False
+  log_space: False
+  min_clip: 0.001
+  norm_max: True
+  norm_sum: False
+  time_query_range: 12
+  prob_smooth: 12
 
 
 ###################
 ## Train params
 train_params:
-  nb_epochs: 110
+  nb_epochs: 100
   optimizer: adamW
   scheduler: CosineAnnealingWarmRestarts
   scheduler_period: 16
   scheduler_t_mult: 1.41421
-  initial_lr: 0.001
+  initial_lr: 0.0001
   save_period: 10
   grad_clip: 64
   labels_smooth: 0.001
+  batch_size: 8
+  
+###################
+## Predict params
+predict_params:
+  tta: 16
+  batch_size: 4

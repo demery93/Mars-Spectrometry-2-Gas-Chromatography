@@ -1,8 +1,8 @@
 ###################
 ## Model options
 model_params:
-  model_name: "130_resnet34"
-  model_cls: "resnet34"
+  model_name: "140_3cls_resnet34"
+  model_cls: "SimpleCls3"
 
 ###################
 ## Dataset options
@@ -18,17 +18,18 @@ dataset_params:
   norm_sum: False
   time_query_range: 16
   prob_smooth: 12
+  make_3d: True
 
 
 ###################
 ## Train params
 train_params:
-  nb_epochs: 16
+  nb_epochs: 100
   optimizer: adamW
   scheduler: CosineAnnealingWarmRestarts
   scheduler_period: 16
   scheduler_t_mult: 1.41421
-  initial_lr: 0.001
+  initial_lr: 0.0001
   save_period: 10
   grad_clip: 64
   labels_smooth: 0.001
