@@ -11,7 +11,7 @@ import os
 import sys
 
 fold = 0
-experiment_name = "140_3cls_resnet34"
+experiment_name = "100_conv1d"
 cfg = load_config_data(experiment_name)
 
 model_params = cfg['model_params']
@@ -61,25 +61,13 @@ train_ds = MarsSpectrometryDataset(
     batch_size=train_params['batch_size'],
     **dataset_params)
 
-'''    time_step=dataset_params['time_step'],
-    max_time=dataset_params['max_time'],
-    max_mass=dataset_params['max_mass'],
-    min_mass=dataset_params['min_mass'],
-    norm_to_one=dataset_params['norm_to_one'],'''
-
-
 val_ds = MarsSpectrometryDataset(
     fold=fold,
     is_training=False,
-    dataset_type='train',
+    dataset_type='val',
     batch_size=predict_params['batch_size'],
     **dataset_params)
-'''    time_step=dataset_params['time_step'],
-    max_time=dataset_params['max_time'],
-    max_mass=dataset_params['max_mass'],
-    min_mass=dataset_params['min_mass'],
-    norm_to_one=dataset_params['norm_to_one'],
-    )'''
+
 
 history = cls.fit(
     train_ds,
@@ -92,10 +80,8 @@ val_pred = np.zeros((len(val_ds.sample_ids), 9))
 for i in range(predict_params['tta']):
     val_pred += cls.predict(val_ds.load_val(), batch_size=predict_params['batch_size']) / predict_params['tta']
 
-validation = labels[labels.index.isin(val_ds.sample_ids)]
-validation[validation.columns] = val_pred
+val_labels = pd.read_csv("input/val_labels.csv", index_col=['sample_id'])
 
-y = labels[labels.index.isin(val_ds.sample_ids)].values
-print(aggregated_log_loss(y, validation.values))
-#0.13239429253404586
-#0.19079846660080224
+y = val_labels.values
+print(aggregated_log_loss(y, val_pred))
+#0.18504296483991145

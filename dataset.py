@@ -101,6 +101,7 @@ class MarsSpectrometryDataset(tf.keras.utils.Sequence):
             self.labels = pd.read_csv('input/train_labels.csv', index_col='sample_id')
         elif dataset_type == 'val':
             self.sample_ids = list(self.metadata[self.metadata.split == 'val'].index.values)
+            self.labels = pd.read_csv('input/val_labels.csv', index_col='sample_id')
         elif dataset_type == 'test_val':
             self.sample_ids = list(self.metadata[self.metadata.split != 'train'].index.values)
             self.labels = pd.DataFrame(index=self.sample_ids)

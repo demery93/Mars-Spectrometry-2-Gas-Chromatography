@@ -15,10 +15,12 @@ def load_config_data(experiment_name: str, experiments_dir='experiments') -> dic
         cfg: dict = yaml.load(f, Loader=yaml.FullLoader)
     return cfg
 
-def aggregated_log_loss(ytrue, ypred):
+def aggregated_log_loss(ytrue, ypred, verbose=False):
     scores = []
     for i in range(ytrue.shape[1]):
         scores.append(log_loss(ytrue[:,i], ypred[:,i]))
+        if(verbose):
+            print(scores[-1])
     return np.mean(scores)
 
 def fill_t_bins(t, intensity, step=config.sample_rate):
