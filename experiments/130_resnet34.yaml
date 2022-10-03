@@ -23,7 +23,7 @@ dataset_params:
 ###################
 ## Train params
 train_params:
-  nb_epochs: 16
+  nb_epochs: 100
   optimizer: adamW
   scheduler: CosineAnnealingWarmRestarts
   scheduler_period: 16

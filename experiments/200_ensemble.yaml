@@ -9,4 +9,4 @@ model_params:
 ###################
 ## Experiment params
 experiment_params:
-  models: ['110_lstm','111_lstm','112_lstm','100_conv1d','101_conv1d','102_conv1d','130_resnet34']
+  models: ['100_conv1d']
