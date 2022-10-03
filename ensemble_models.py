@@ -6,7 +6,6 @@ from config import config
 
 cfg = load_config_data("200_ensemble")
 val_labels = pd.read_csv("input/val_labels.csv")
-val_pred = val_labels[['sample_id']].merge(sub.reset_index())
 
 model_params = cfg['model_params']
 experiment_params = cfg['experiment_params']
@@ -32,10 +31,7 @@ for model in experiment_params['models']:
         tmp_sub = pd.read_csv(f"{sub_dir}/{model}_fold{i}.csv", index_col=['sample_id'])
         oof_model[oof_model.index.isin(train_samples)] = tmp_oof.values
         sub_model += tmp_sub.values / config.n_folds
-        y = val_labels.values[:, 1:].astype(float)
-        pred = val_pred.values[:, 1:]
 
-        print(aggregated_log_loss(y, pred))
 
     print(f"CV Score for Model {model}: {aggregated_log_loss(labels.values, oof_model.values)}")  # 0.1802036797157865
     sub += sub_model.values / len(experiment_params['models'])
@@ -48,6 +44,8 @@ os.makedirs(f"{config.output_path}/sub/{model_params['model_name']}", exist_ok=T
 sub.reset_index().to_csv(f"{config.output_path}/sub/{model_params['model_name']}/submission.csv", index=False, header=True)
 
 
-
-
 aggregated_log_loss(labels.values, oof.values, verbose=True)
+val_pred = val_labels[['sample_id']].merge(sub.reset_index())
+y = val_labels.values[:, 1:].astype(float)
+pred = val_pred.values[:, 1:]
+print(aggregated_log_loss(y, pred)) #0.17227686768787626

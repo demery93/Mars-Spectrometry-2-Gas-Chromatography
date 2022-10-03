@@ -60,24 +60,15 @@ def cnn2d(timesteps, nions):
 
 def cnn1d(timesteps, nions):
     inp = tf.keras.layers.Input(shape=(timesteps, nions))
+    dilations = [1, 2, 5, 10, 20, 50]
+    c = []
+    for d in dilations:
+        c_tmp = tf.keras.layers.Conv1D(8, 3, dilation_rate=d, padding='same')(inp)
+        c_tmp = tf.keras.layers.BatchNormalization()(c_tmp)
+        c_tmp = tf.keras.layers.Activation('relu')(c_tmp)
+        c.append(c_tmp)
 
-    c1 = tf.keras.layers.Conv1D(50, 3, dilation_rate=2 ** 0, padding='same')(inp)
-    c1 = tf.keras.layers.BatchNormalization()(c1)
-    c1 = tf.keras.layers.Activation('relu')(c1)
-    c2 = tf.keras.layers.Conv1D(50, 3, dilation_rate=2 ** 1, padding='same')(inp)
-    c2 = tf.keras.layers.BatchNormalization()(c2)
-    c2 = tf.keras.layers.Activation('relu')(c2)
-    c3 = tf.keras.layers.Conv1D(50, 3, dilation_rate=2 ** 2, padding='same')(inp)
-    c3 = tf.keras.layers.BatchNormalization()(c3)
-    c3 = tf.keras.layers.Activation('relu')(c3)
-    c4 = tf.keras.layers.Conv1D(50, 3, dilation_rate=2 ** 3, padding='same')(inp)
-    c4 = tf.keras.layers.BatchNormalization()(c4)
-    c4 = tf.keras.layers.Activation('relu')(c4)
-    c5 = tf.keras.layers.Conv1D(50, 3, dilation_rate=2 ** 4, padding='same')(inp)
-    c5 = tf.keras.layers.BatchNormalization()(c5)
-    c5 = tf.keras.layers.Activation('relu')(c5)
-
-    c = tf.keras.layers.concatenate([c1, c2, c3, c4, c5])
+    c = tf.keras.layers.concatenate(c)
     x = tf.keras.layers.Flatten()(c)
     x = tf.keras.layers.Dropout(0.5)(x)
     x = tf.keras.layers.Dense(512, activation='relu')(x)

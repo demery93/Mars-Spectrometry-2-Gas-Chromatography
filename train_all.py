@@ -1,7 +1,7 @@
 import os
 import sys
 
-experiments = ['130_resnet34']
+experiments = ['100_conv1d']
 
 for exp in experiments:
     cmd = f"python train_model.py 0 {exp}"

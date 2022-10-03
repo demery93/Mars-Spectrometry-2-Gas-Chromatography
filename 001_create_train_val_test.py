@@ -21,7 +21,6 @@ def preprocess(src, dst, is_derivatized):
     sample['mass'] = sample['mass'].round().astype(int)
     sample = sample[sample.mass < config.max_mass].reset_index(drop=True)
     sample = sample[sample.mass > 0].reset_index(drop=True)
-    sample.loc[sample.mass == 4,'intensity'] = 0
     res = []
 
     for m in sorted(sample["mass"].unique()):
