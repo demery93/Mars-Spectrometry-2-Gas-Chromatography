@@ -5,13 +5,13 @@ from config import config
 import model_definitions
 import tensorflow as tf
 import tensorflow_addons as tfa
-from dataset import MarsSpectrometryDataset
+from dataset import MarsSpectrometryDataset, MarsSpectrometryDatasetSequence
 from utils import aggregated_log_loss, CosineAnnealingWarmRestarts, load_config_data
 import os
 import sys
 
 fold = 0
-experiment_name = "100_conv1d"
+experiment_name = "99_conv1d"
 cfg = load_config_data(experiment_name)
 
 model_params = cfg['model_params']
@@ -19,7 +19,7 @@ dataset_params = cfg['dataset_params']
 train_params = cfg['train_params']
 predict_params = cfg['predict_params']
 
-timesteps = int(dataset_params['max_time'] // dataset_params['time_step'])
+timesteps = 2000
 nions = int(dataset_params['max_mass'] - dataset_params['min_mass'])
 
 labels = pd.read_csv("input/train_labels.csv")
@@ -54,20 +54,19 @@ callbacks = [tf.keras.callbacks.LearningRateScheduler(scheduler),
                 monitor='val_loss',
                 save_freq=20)]
 
-train_ds = MarsSpectrometryDataset(
+train_ds = MarsSpectrometryDatasetSequence(
     fold=fold,
     is_training=True,
     dataset_type='train',
     batch_size=train_params['batch_size'],
     **dataset_params)
 
-val_ds = MarsSpectrometryDataset(
+val_ds = MarsSpectrometryDatasetSequence(
     fold=fold,
     is_training=False,
     dataset_type='val',
     batch_size=predict_params['batch_size'],
     **dataset_params)
-
 
 history = cls.fit(
     train_ds,
@@ -83,5 +82,5 @@ for i in range(predict_params['tta']):
 val_labels = pd.read_csv("input/val_labels.csv", index_col=['sample_id'])
 
 y = val_labels.values
-print(aggregated_log_loss(y, val_pred))
+print(aggregated_log_loss(y, val_pred * (16/11)))
 #0.18504296483991145

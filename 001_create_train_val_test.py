@@ -14,10 +14,11 @@ def preprocess(src, dst, is_derivatized):
     '''
 
     This function iterates through the data directories, processes each sample, and stores it in an intensity
-    dataframe and a timeerature dataframe
+    dataframe and a time dataframe
     '''
     sample = pd.read_csv(src, dtype={'time':np.float64, 'mass':np.float64, 'intensity':np.int64})
     sample = sample.loc[(sample['mass'] % 1 < 0.3) | (sample['mass'] % 1 > 0.7)].reset_index(drop=True)
+    sample.loc[sample['mass'] == 4, 'intensity'] = 0
     sample['mass'] = sample['mass'].round().astype(int)
     sample = sample[sample.mass < config.max_mass].reset_index(drop=True)
     sample = sample[sample.mass > 0].reset_index(drop=True)
@@ -28,7 +29,7 @@ def preprocess(src, dst, is_derivatized):
         t = sample[sample["mass"] == m]["time"].values
         intensity = sample[sample["mass"] == m]["intensity"].values
 
-        t_bins, i_bins = fill_t_bins(t, intensity)
+        '''t_bins, i_bins = fill_t_bins(t, intensity)
         if len(t_bins) < 4:
             print(f'Skip m {m} i {len(intensity)} t_bins {len(t_bins)} {src} is derivatized: {is_derivatized}')
             continue
@@ -41,15 +42,11 @@ def preprocess(src, dst, is_derivatized):
 
             if len(i_bins) < 4:
                 print(f'No non null values: count {len(i_bins)} m {m} {src}  is derivatized: {is_derivatized}')
-                continue
+                continue'''
 
 
-        if is_derivatized:
-            t_cur = t
-            i_cur = intensity
-        else:
-            t_cur = t_bins.copy()
-            i_cur = i_bins.copy()
+        t_cur = t
+        i_cur = intensity
 
         i_sub_min = i_cur - np.min(i_cur)
         i_sub_q5 = i_cur - np.quantile(i_cur, 0.05)
