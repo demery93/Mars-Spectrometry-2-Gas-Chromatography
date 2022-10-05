@@ -19,6 +19,7 @@ def preprocess(src, dst, is_derivatized):
     sample = pd.read_csv(src, dtype={'time':np.float64, 'mass':np.float64, 'intensity':np.int64})
     sample = sample.loc[(sample['mass'] % 1 < 0.3) | (sample['mass'] % 1 > 0.7)].reset_index(drop=True)
     sample['mass'] = sample['mass'].round().astype(int)
+    sample.loc[sample['mass'] == 4, 'intensity'] = 0
     sample = sample[sample.mass < config.max_mass].reset_index(drop=True)
     sample = sample[sample.mass > 0].reset_index(drop=True)
     res = []

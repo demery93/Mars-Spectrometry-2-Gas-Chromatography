@@ -85,3 +85,14 @@ val_labels = pd.read_csv("input/val_labels.csv", index_col=['sample_id'])
 y = val_labels.values
 print(aggregated_log_loss(y, val_pred))
 #0.18504296483991145
+
+import pandas as pd
+import os
+dir = "processed/features/"
+tmax = []
+for f in os.listdir(dir):
+    s = pd.read_feather(dir+f)
+    tmax.append(s.time.max())
+
+print(np.min(tmax))
+print(np.max(tmax))

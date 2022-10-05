@@ -49,7 +49,7 @@ def render_image(time: np.ndarray,
         for i in range(step_pos[src_step], step_pos[src_step + 1]):
             res[time_id, mass[i] - config.min_mass] = intensity[i]
 
-    return res
+    return res[:,5:]
 
 
 class MarsSpectrometryDataset(tf.keras.utils.Sequence):
