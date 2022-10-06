@@ -27,7 +27,7 @@ def cnn2d(timesteps, nions):
     return model
 
 def cnn1d(timesteps, nions):
-    inp = tf.keras.layers.Input(shape=(timesteps-5, nions))
+    inp = tf.keras.layers.Input(shape=(timesteps, nions))
     dilations = [1, 2, 5, 10, 20, 50]
     c = []
     for d in dilations:

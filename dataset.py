@@ -49,7 +49,7 @@ def render_image(time: np.ndarray,
         for i in range(step_pos[src_step], step_pos[src_step + 1]):
             res[time_id, mass[i] - config.min_mass] = intensity[i]
 
-    return res[:,5:]
+    return res
 
 
 class MarsSpectrometryDataset(tf.keras.utils.Sequence):
@@ -133,7 +133,9 @@ class MarsSpectrometryDataset(tf.keras.utils.Sequence):
                      )
 
 
-        p = render_image(time=t['time'].values,
+        #max_time = np.max(time)
+        #time = np.abs(time - max_time) #Reflect over time
+        p = render_image(time=t['t_norm'].values,
                          mass=mass,
                          intensity=intensity,
                          step_pos=step_pos,
@@ -145,10 +147,9 @@ class MarsSpectrometryDataset(tf.keras.utils.Sequence):
                          prob_smooth = self.prob_smooth
                          )
 
+        p = np.clip(p, self.min_clip, 1e10)
         if self.norm_max:
             p = p / p.max()
-        p = p * (2 ** np.random.normal(0, 0.05))
-        p = np.clip(p, self.min_clip, 1e10)
 
         if self.log_space:
             p = np.log10(p)
@@ -159,6 +160,8 @@ class MarsSpectrometryDataset(tf.keras.utils.Sequence):
             s = p.sum(axis=0).reshape((1, -1))
             s[s == 0] = 1
             p = p / s
+
+        p = p * (2 ** np.random.normal(0, 0.05))
 
         return p
 

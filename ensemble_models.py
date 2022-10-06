@@ -48,4 +48,4 @@ aggregated_log_loss(labels.values, oof.values, verbose=True)
 val_pred = val_labels[['sample_id']].merge(sub.reset_index())
 y = val_labels.values[:, 1:].astype(float)
 pred = val_pred.values[:, 1:]
-print(aggregated_log_loss(y, pred)) #0.17227686768787626
+print(aggregated_log_loss(y, pred)) #0.16272638525641003

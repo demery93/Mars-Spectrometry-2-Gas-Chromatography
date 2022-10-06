@@ -56,10 +56,13 @@ def preprocess(src, dst, is_derivatized):
         i_sub_q10 = i_cur - np.quantile(i_cur, 0.10)
         i_sub_q20 = i_cur - np.quantile(i_cur, 0.20)
 
+        t_norm = 50*(t_cur / np.max(t_cur))
+
 
         for i, ti in enumerate(t_cur):
             res.append({
                 'time': ti,
+                't_norm': t_norm[i],
                 'mass': m,
                 'intensity': i_cur[i],
                 'intensity_sub_min': i_sub_min[i],
