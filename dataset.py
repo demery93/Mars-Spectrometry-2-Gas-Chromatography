@@ -24,7 +24,7 @@ def render_image(tnorm: np.ndarray,
     max_time_id = int((max_time - min_time) // time_step)
     nions = (max_mass - min_mass)
 
-    res = np.zeros((int((max_time - min_time)//time_step), nions+1), dtype=np.float32) - 1
+    res = np.zeros((int((max_time - min_time)//time_step), nions), dtype=np.float32) - 1
     t_raw = np.zeros((int((max_time - min_time)//time_step),), dtype=np.float32) - 1
     step_time = [np.mean(v) for v in np.split(tnorm, step_pos)][1:-1]
     time_bands = [[] for t in range(int(max_time // time_step) + time_query_range + 1)]  # temp: list of steps
@@ -52,7 +52,7 @@ def render_image(tnorm: np.ndarray,
             res[time_id, mass[i] - config.min_mass] = intensity[i]
 
         t_raw[time_id] = traw[step_pos[src_step]] / 50
-        res[:, nions] = t_raw
+
     return res
 
 

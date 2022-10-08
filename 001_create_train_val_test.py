@@ -56,7 +56,7 @@ def preprocess(src, dst, is_derivatized):
         i_sub_q10 = i_cur - np.quantile(i_cur, 0.10)
         i_sub_q20 = i_cur - np.quantile(i_cur, 0.20)
 
-        t_norm = 50*(t_cur / np.max(t_cur))
+        t_norm = 100*(t_cur / np.max(t_cur))
 
 
         for i, ti in enumerate(t_cur):

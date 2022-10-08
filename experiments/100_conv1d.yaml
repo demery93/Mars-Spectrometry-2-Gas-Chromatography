@@ -8,7 +8,7 @@ model_params:
 ## Dataset options
 dataset_params:
   time_step: 1
-  max_time: 50
+  max_time: 100
   max_mass: 250
   min_mass: 1
   norm_to_one: False
