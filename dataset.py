@@ -8,7 +8,8 @@ from utils import print_stats, timeit_context
 
 from config import config
 
-def render_image(time: np.ndarray,
+def render_image(tnorm: np.ndarray,
+                 traw: np.ndarray,
                  mass: np.ndarray,
                  intensity: np.ndarray,
                  step_pos: np.ndarray,
@@ -23,8 +24,9 @@ def render_image(time: np.ndarray,
     max_time_id = int((max_time - min_time) // time_step)
     nions = (max_mass - min_mass)
 
-    res = np.zeros((int((max_time - min_time)//time_step), nions), dtype=np.float32) - 1
-    step_time = [np.mean(v) for v in np.split(time, step_pos)][1:-1]
+    res = np.zeros((int((max_time - min_time)//time_step), nions+1), dtype=np.float32) - 1
+    t_raw = np.zeros((int((max_time - min_time)//time_step),), dtype=np.float32) - 1
+    step_time = [np.mean(v) for v in np.split(tnorm, step_pos)][1:-1]
     time_bands = [[] for t in range(int(max_time // time_step) + time_query_range + 1)]  # temp: list of steps
     for step, t in enumerate(step_time):
         t = int(t // time_step)
@@ -49,6 +51,8 @@ def render_image(time: np.ndarray,
         for i in range(step_pos[src_step], step_pos[src_step + 1]):
             res[time_id, mass[i] - config.min_mass] = intensity[i]
 
+        t_raw[time_id] = traw[step_pos[src_step]] / 50
+        res[:, nions] = t_raw
     return res
 
 
@@ -135,7 +139,8 @@ class MarsSpectrometryDataset(tf.keras.utils.Sequence):
 
         #max_time = np.max(time)
         #time = np.abs(time - max_time) #Reflect over time
-        p = render_image(time=t['t_norm'].values,
+        p = render_image(tnorm=t['t_norm'].values,
+                         traw=t['time'].values,
                          mass=mass,
                          intensity=intensity,
                          step_pos=step_pos,

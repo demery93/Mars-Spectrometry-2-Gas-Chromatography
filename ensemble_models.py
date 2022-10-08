@@ -38,14 +38,16 @@ for model in experiment_params['models']:
     oof += oof_model.values / len(experiment_params['models'])
     val_pred = val_labels[['sample_id']].merge(sub_model.reset_index())
 
-print(f"CV Score for Model {model_params['model_cls']}: {aggregated_log_loss(labels.values, oof.values)}")  # 0.1665458760452786
 
 os.makedirs(f"{config.output_path}/sub/{model_params['model_name']}", exist_ok=True)
 sub.reset_index().to_csv(f"{config.output_path}/sub/{model_params['model_name']}/submission.csv", index=False, header=True)
 
-
-aggregated_log_loss(labels.values, oof.values, verbose=True)
 val_pred = val_labels[['sample_id']].merge(sub.reset_index())
 y = val_labels.values[:, 1:].astype(float)
 pred = val_pred.values[:, 1:]
-print(aggregated_log_loss(y, pred)) #0.16272638525641003
+print(f"CV Score for Model {model_params['model_cls']}: {aggregated_log_loss(labels.values, oof.values)}")  # 0.1665458760452786
+print(f"Leaderboard Score for Model {aggregated_log_loss(y, pred)}")
+'''
+CV Score for Model ensemble: 0.1445511427661224
+Leaderboard Score for Model 0.16272638525641003
+'''

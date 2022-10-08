@@ -12,22 +12,8 @@ def lstm(timesteps, nions):
     model = tf.keras.models.Model(inputs=inp, outputs=out)
     return model
 
-def cnn2d(timesteps, nions):
-    inp = tf.keras.layers.Input(shape=(timesteps, nions))
-
-    x0 = tf.keras.layers.Reshape((timesteps, nions, 1))(inp)
-
-    m = tfimm.create_model("resnet34", pretrained=True, in_channels=1, features_only=True)
-    res, features = m(x0, return_features=True)
-    x = tf.keras.layers.Dense(128, activation='relu')(features)
-
-    out = tf.keras.layers.Dense(9, activation='sigmoid')(x)
-    model = tf.keras.models.Model(inputs=inp, outputs=out)
-    model.compile(optimizer='adam', loss='binary_crossentropy')
-    return model
-
 def cnn1d(timesteps, nions):
-    inp = tf.keras.layers.Input(shape=(timesteps, nions))
+    inp = tf.keras.layers.Input(shape=(timesteps, nions+1))
     dilations = [1, 2, 5, 10, 20, 50]
     c = []
     for d in dilations:
@@ -47,9 +33,9 @@ def cnn1d(timesteps, nions):
     return model
 
 def resnet34(timesteps, nions):
-    inp = tf.keras.layers.Input(shape=(timesteps, nions))
+    inp = tf.keras.layers.Input(shape=(timesteps, nions+1))
 
-    x0 = tf.keras.layers.Reshape((timesteps, nions, 1))(inp)
+    x0 = tf.keras.layers.Reshape((timesteps, nions+1, 1))(inp)
     x0 = Rearrange("b t n c -> b n t c")(x0)
 
     m = tfimm.create_model("resnet34", in_channels=1, pretrained=True)

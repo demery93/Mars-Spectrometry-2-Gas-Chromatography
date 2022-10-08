@@ -11,7 +11,7 @@ import os
 import sys
 
 fold = 0
-experiment_name = "130_resnet34"
+experiment_name = "100_conv1d"
 cfg = load_config_data(experiment_name)
 
 model_params = cfg['model_params']
@@ -84,7 +84,7 @@ val_labels = pd.read_csv("input/val_labels.csv", index_col=['sample_id'])
 
 y = val_labels.values
 print(aggregated_log_loss(y, val_pred))
-#0.1769836970853748
+#0.16814406959333844
 
 import pandas as pd
 import os
