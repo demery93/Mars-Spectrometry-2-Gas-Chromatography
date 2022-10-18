@@ -13,8 +13,7 @@ traw = s['time'].values
 mass = s['mass'].values
 intensity = s['intensity'].values
 step_pos = np.where(np.diff(s['mass'].values, prepend=0) < 0)[0]
-def render_image(tnorm: np.ndarray,
-                 traw: np.ndarray,
+def render_image(time: np.ndarray,
                  mass: np.ndarray,
                  intensity: np.ndarray,
                  step_pos: np.ndarray,
@@ -30,11 +29,9 @@ def render_image(tnorm: np.ndarray,
     nions = (max_mass - min_mass)
 
     res = np.zeros((max_time_id, nions), dtype=np.float32) - 1
-    t_raw = np.zeros((max_time_id,), dtype=np.float32) - 1
-    step_time = [np.mean(v) for v in np.split(tnorm, step_pos)][1:-1]
+    step_time = [np.mean(v) for v in np.split(time, step_pos)][1:-1]
     time_bands = [[] for t in range(max_time + time_query_range + 1)]  # temp: list of steps
     for step, t in enumerate(step_time):
-        #t = int(t // time_step)
         t = math.floor(t)
         if 0 <= t < len(time_bands):
             time_bands[t].append(step)
@@ -55,8 +52,6 @@ def render_image(tnorm: np.ndarray,
         for i in range(step_pos[src_step], step_pos[src_step + 1]):
             res[time_id, mass[i] - config.min_mass] = intensity[i]
 
-        t_raw[time_id] = traw[step_pos[src_step]] / 50
-        res[:,-1] = t_raw
 
     return res
 
@@ -142,10 +137,7 @@ class MarsSpectrometryDataset(tf.keras.utils.Sequence):
                      )
 
 
-        #max_time = np.max(time)
-        #time = np.abs(time - max_time) #Reflect over time
-        p = render_image(tnorm=t['t_norm'].values,
-                         traw=t['time'].values,
+        p = render_image(time=t['time'].values,
                          mass=mass,
                          intensity=intensity,
                          step_pos=step_pos,
@@ -171,9 +163,6 @@ class MarsSpectrometryDataset(tf.keras.utils.Sequence):
 
         if self.norm_max:
             p = p / p.max()
-            #m = p.max(axis=0).reshape((1, -1))
-            #m[m == 0] = 1
-            #p = p / m
 
         p = p * (2 ** np.random.normal(0, 0.05))
 
