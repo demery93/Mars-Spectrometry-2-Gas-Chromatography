@@ -12,26 +12,12 @@ def lstm(timesteps, nions):
     model = tf.keras.models.Model(inputs=inp, outputs=out)
     return model
 
-def cnn2d(timesteps, nions):
-    inp = tf.keras.layers.Input(shape=(timesteps, nions))
-
-    x0 = tf.keras.layers.Reshape((timesteps, nions, 1))(inp)
-
-    m = tfimm.create_model("resnet34", pretrained=True, in_channels=1, features_only=True)
-    res, features = m(x0, return_features=True)
-    x = tf.keras.layers.Dense(128, activation='relu')(features)
-
-    out = tf.keras.layers.Dense(9, activation='sigmoid')(x)
-    model = tf.keras.models.Model(inputs=inp, outputs=out)
-    model.compile(optimizer='adam', loss='binary_crossentropy')
-    return model
-
 def cnn1d(timesteps, nions):
-    inp = tf.keras.layers.Input(shape=(timesteps, nions))
+    intensity_in = tf.keras.layers.Input(shape=(timesteps, nions))
     dilations = [1, 2, 5, 10, 20, 50]
     c = []
     for d in dilations:
-        c_tmp = tf.keras.layers.Conv1D(8, 3, dilation_rate=d, padding='same')(inp)
+        c_tmp = tf.keras.layers.Conv1D(8, 3, dilation_rate=d, padding='same')(intensity_in)
         c_tmp = tf.keras.layers.BatchNormalization()(c_tmp)
         c_tmp = tf.keras.layers.Activation('relu')(c_tmp)
         c.append(c_tmp)
@@ -43,7 +29,7 @@ def cnn1d(timesteps, nions):
     x = tf.keras.layers.Dense(128, activation='relu')(x)
 
     out = tf.keras.layers.Dense(9, activation='sigmoid')(x)
-    model = tf.keras.models.Model(inputs=inp, outputs=out)
+    model = tf.keras.models.Model(inputs=intensity_in, outputs=out)
     return model
 
 def resnet34(timesteps, nions):

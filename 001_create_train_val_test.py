@@ -56,13 +56,10 @@ def preprocess(src, dst, is_derivatized):
         i_sub_q10 = i_cur - np.quantile(i_cur, 0.10)
         i_sub_q20 = i_cur - np.quantile(i_cur, 0.20)
 
-        t_norm = 50*(t_cur / np.max(t_cur))
-
 
         for i, ti in enumerate(t_cur):
             res.append({
                 'time': ti,
-                't_norm': t_norm[i],
                 'mass': m,
                 'intensity': i_cur[i],
                 'intensity_sub_min': i_sub_min[i],
@@ -75,7 +72,8 @@ def preprocess(src, dst, is_derivatized):
     res_df = pd.DataFrame(
         res
     )
-
+    res_df['t_norm'] = 100*((res_df['time'] - res_df['time'].min()) / (res_df['time'].max() - res_df['time'].min()))
+    #res_df['t_norm'] = res_df['time'] - res_df['time'].min()
     res_df = res_df.sort_values(['time', 'mass'], axis=0)
     res_df.reset_index(drop=True, inplace=True)
     res_df.to_feather(dst)
@@ -103,7 +101,7 @@ def split_to_folds():
     kf = StratifiedKFold(n_splits=config.n_folds, random_state=config.seed, shuffle=True)
     metadata = pd.read_csv("input/metadata.csv")
 
-    metadata = metadata[metadata.split == 'train']
+    metadata = metadata[metadata.split != 'test']
     metadata['fold'] = -1
     for fold, (train_index, test_index) in enumerate(kf.split(metadata.sample_id, metadata.derivatized.fillna(0))):
         print(fold, test_index)
