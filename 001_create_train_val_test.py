@@ -101,7 +101,7 @@ def split_to_folds():
     kf = StratifiedKFold(n_splits=config.n_folds, random_state=config.seed, shuffle=True)
     metadata = pd.read_csv("input/metadata.csv")
 
-    metadata = metadata[metadata.split != 'test']
+    metadata = metadata[metadata.split == 'train']
     metadata['fold'] = -1
     for fold, (train_index, test_index) in enumerate(kf.split(metadata.sample_id, metadata.derivatized.fillna(0))):
         print(fold, test_index)
