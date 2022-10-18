@@ -19,12 +19,9 @@ dataset_params = cfg['dataset_params']
 train_params = cfg['train_params']
 predict_params = cfg['predict_params']
 
-labels = pd.concat([
-                pd.read_csv('input/train_labels.csv', index_col='sample_id'),
-                pd.read_csv('input/val_labels.csv', index_col='sample_id')
-            ], axis=0)
+labels = pd.read_csv('input/train_labels.csv', index_col='sample_id')
+
 sub = pd.read_csv("input/submission_format.csv")
-#labels.set_index('sample_id', inplace=True)
 oof = labels.copy()
 
 timesteps = int(dataset_params['max_time'] // dataset_params['time_step'])
