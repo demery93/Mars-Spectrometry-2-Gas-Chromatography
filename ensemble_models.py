@@ -10,7 +10,10 @@ val_labels = pd.read_csv("input/val_labels.csv")
 model_params = cfg['model_params']
 experiment_params = cfg['experiment_params']
 folds = pd.read_csv("processed/folds.csv")
-labels = pd.read_csv("input/train_labels.csv", index_col=['sample_id'])
+labels = pd.concat([
+                pd.read_csv('input/train_labels.csv', index_col='sample_id'),
+                pd.read_csv('input/val_labels.csv', index_col='sample_id')
+            ], axis=0)
 sub = pd.read_csv("input/submission_format.csv", index_col=['sample_id'])
 oof = labels.copy()
 for c in sub.columns:
@@ -48,6 +51,6 @@ pred = val_pred.values[:, 1:]
 print(f"CV Score for Model {model_params['model_cls']}: {aggregated_log_loss(labels.values, oof.values)}")  # 0.1665458760452786
 print(f"Leaderboard Score for Model {aggregated_log_loss(y, pred)}")
 '''
-CV Score for Model ensemble: 0.1445511427661224
-Leaderboard Score for Model 0.16272638525641003
+CV Score for Model ensemble: 0.13798777854197133
+Leaderboard Score for Model 0.15779973102741587
 '''

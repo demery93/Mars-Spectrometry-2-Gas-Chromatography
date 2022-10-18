@@ -14,4 +14,4 @@ for exp in experiments:
     os.system(cmd) #0.1360
 
     cmd = f"python train_model.py 3 {exp}"
-    os.system(cmd) #0.1863
+    os.system(cmd) #0.1404

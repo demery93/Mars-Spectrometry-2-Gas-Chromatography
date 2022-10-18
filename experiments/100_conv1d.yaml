@@ -7,7 +7,7 @@ model_params:
 ###################
 ## Dataset options
 dataset_params:
-  time_step: 1
+  time_step: 2
   max_time: 100
   max_mass: 250
   min_mass: 1
@@ -16,7 +16,7 @@ dataset_params:
   min_clip: 0.001
   norm_max: False
   norm_sum: True
-  time_query_range: 12
+  time_query_range: 24
   prob_smooth: 12
 
 ###################

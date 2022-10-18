@@ -33,9 +33,9 @@ def cnn1d(timesteps, nions):
     return model
 
 def resnet34(timesteps, nions):
-    inp = tf.keras.layers.Input(shape=(timesteps, nions+1))
+    inp = tf.keras.layers.Input(shape=(timesteps, nions))
 
-    x0 = tf.keras.layers.Reshape((timesteps, nions+1, 1))(inp)
+    x0 = tf.keras.layers.Reshape((timesteps, nions, 1))(inp)
     x0 = Rearrange("b t n c -> b n t c")(x0)
 
     m = tfimm.create_model("resnet34", in_channels=1, pretrained=True)

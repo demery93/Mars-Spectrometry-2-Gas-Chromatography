@@ -7,8 +7,8 @@ model_params:
 ###################
 ## Dataset options
 dataset_params:
-  time_step: 1
-  max_time: 50
+  time_step: 2
+  max_time: 100
   max_mass: 250
   min_mass: 1
   norm_to_one: False
@@ -24,7 +24,7 @@ dataset_params:
 ## Train params
 train_params:
   nb_epochs: 100
-  optimizer: adamW
+  optimizer: sgd
   scheduler: CosineAnnealingWarmRestarts
   scheduler_period: 16
   scheduler_t_mult: 1.41421

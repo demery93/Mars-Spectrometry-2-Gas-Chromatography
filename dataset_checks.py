@@ -22,7 +22,7 @@ def check_render_image():
     mass = t['mass'].values.astype(int)
     with timeit_context('render img'):
         for i in range(100):
-            p = render_image(tnorm=t['t_norm'].values,traw=t['time'].values, mass=mass, intensity=intensity, step_pos=step_pos, time_query_range=10)
+            p = render_image(tnorm=t['t_norm'].values,traw=t['time'].values, mass=mass, intensity=intensity, step_pos=step_pos, time_query_range=10, time_step=2, max_time=100)
 
     p[4, :] *= 0.1
     p = p / p.max()

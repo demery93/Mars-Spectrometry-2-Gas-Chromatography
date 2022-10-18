@@ -7,51 +7,56 @@ from tqdm import tqdm
 from utils import print_stats, timeit_context
 
 from config import config
-
+s = pd.read_feather("processed/features/S0002.f")
+tnorm = s['t_norm'].values
+traw = s['time'].values
+mass = s['mass'].values
+intensity = s['intensity'].values
+step_pos = np.where(np.diff(s['mass'].values, prepend=0) < 0)[0]
 def render_image(tnorm: np.ndarray,
                  traw: np.ndarray,
                  mass: np.ndarray,
                  intensity: np.ndarray,
                  step_pos: np.ndarray,
-                 time_step=1,
+                 time_step=2,
                  min_time = 0,
-                 max_time = 50,
+                 max_time = 100,
                  min_mass = 1,
                  max_mass = 250,
-                 time_query_range = 0,
-                 prob_smooth = 6
+                 time_query_range = 12,
+                 prob_smooth = 12
                  ):
     max_time_id = int((max_time - min_time) // time_step)
     nions = (max_mass - min_mass)
 
-    res = np.zeros((int((max_time - min_time)//time_step), nions), dtype=np.float32) - 1
-    t_raw = np.zeros((int((max_time - min_time)//time_step),), dtype=np.float32) - 1
+    res = np.zeros((max_time_id, nions), dtype=np.float32) - 1
+    t_raw = np.zeros((max_time_id,), dtype=np.float32) - 1
     step_time = [np.mean(v) for v in np.split(tnorm, step_pos)][1:-1]
-    time_bands = [[] for t in range(int(max_time // time_step) + time_query_range + 1)]  # temp: list of steps
+    time_bands = [[] for t in range(max_time + time_query_range + 1)]  # temp: list of steps
     for step, t in enumerate(step_time):
-        t = int(t // time_step)
+        #t = int(t // time_step)
+        t = math.floor(t)
         if 0 <= t < len(time_bands):
             time_bands[t].append(step)
 
     for time_id in range(max_time_id):
-        t = int(config.min_time + time_id * time_step)
+        t = int(config.min_time + time_id*time_step)
         src_steps = []
         src_steps_p = []
         for band in time_bands[max(0, t - time_query_range):t + time_query_range + 1]:
             for step in band:
                 src_steps.append(step)
-                src_steps_p.append(1.0 / (prob_smooth + abs(t - step_time[step])))
-
+                src_steps_p.append(1.0 / (prob_smooth + abs(t - (step_time[step]))))
         if not len(src_steps):
             continue
 
         src_steps_p = np.array(src_steps_p)
         src_step = np.random.choice(src_steps, p=src_steps_p / src_steps_p.sum())
-
         for i in range(step_pos[src_step], step_pos[src_step + 1]):
             res[time_id, mass[i] - config.min_mass] = intensity[i]
 
         t_raw[time_id] = traw[step_pos[src_step]] / 50
+        res[:,-1] = t_raw
 
     return res
 
@@ -102,7 +107,11 @@ class MarsSpectrometryDataset(tf.keras.utils.Sequence):
                 folds = folds[folds.fold == fold]
 
             self.sample_ids = list(folds.sample_id.values)
-            self.labels = pd.read_csv('input/train_labels.csv', index_col='sample_id')
+            #self.labels = pd.read_csv('input/train_labels.csv', index_col='sample_id')
+            self.labels = pd.concat([
+                pd.read_csv('input/train_labels.csv', index_col='sample_id'),
+                pd.read_csv('input/val_labels.csv', index_col='sample_id')
+            ], axis=0)
         elif dataset_type == 'val':
             self.sample_ids = list(self.metadata[self.metadata.split == 'val'].index.values)
             self.labels = pd.read_csv('input/val_labels.csv', index_col='sample_id')
@@ -153,8 +162,6 @@ class MarsSpectrometryDataset(tf.keras.utils.Sequence):
                          )
 
         p = np.clip(p, self.min_clip, 1e10)
-        if self.norm_max:
-            p = p / p.max()
 
         if self.log_space:
             p = np.log10(p)
@@ -165,6 +172,12 @@ class MarsSpectrometryDataset(tf.keras.utils.Sequence):
             s = p.sum(axis=0).reshape((1, -1))
             s[s == 0] = 1
             p = p / s
+
+        if self.norm_max:
+            p = p / p.max()
+            #m = p.max(axis=0).reshape((1, -1))
+            #m[m == 0] = 1
+            #p = p / m
 
         p = p * (2 ** np.random.normal(0, 0.05))
 

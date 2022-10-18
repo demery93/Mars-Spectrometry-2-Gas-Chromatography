@@ -19,9 +19,12 @@ dataset_params = cfg['dataset_params']
 train_params = cfg['train_params']
 predict_params = cfg['predict_params']
 
-labels = pd.read_csv("input/train_labels.csv")
+labels = pd.concat([
+                pd.read_csv('input/train_labels.csv', index_col='sample_id'),
+                pd.read_csv('input/val_labels.csv', index_col='sample_id')
+            ], axis=0)
 sub = pd.read_csv("input/submission_format.csv")
-labels.set_index('sample_id', inplace=True)
+#labels.set_index('sample_id', inplace=True)
 oof = labels.copy()
 
 timesteps = int(dataset_params['max_time'] // dataset_params['time_step'])
@@ -68,15 +71,19 @@ val_ds = MarsSpectrometryDataset(
     batch_size=predict_params['batch_size'],
     **dataset_params)
 
-history = cls.fit(
-    train_ds,
-    verbose=1,
-    epochs=train_params['nb_epochs'],
-    batch_size=8,
-    validation_data=val_ds,
-    callbacks=callbacks
-)
-cls.save_weights(f"trained_models/{model_params['model_name']}_{fold}.h5")
+if(fold == 0):
+    cls.load_weights(f"trained_models/{model_params['model_name']}_{fold}.h5")
+else:
+    history = cls.fit(
+        train_ds,
+        verbose=1,
+        epochs=train_params['nb_epochs'],
+        batch_size=8,
+        validation_data=val_ds,
+        callbacks=callbacks
+    )
+    cls.save_weights(f"trained_models/{model_params['model_name']}_{fold}.h5")
+
 val_pred = np.zeros((len(val_ds.sample_ids), 9))
 for i in range(predict_params['tta']):
     val_pred += cls.predict(val_ds.load_val(), batch_size=predict_params['batch_size']) / predict_params['tta']

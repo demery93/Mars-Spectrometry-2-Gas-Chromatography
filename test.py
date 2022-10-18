@@ -84,7 +84,7 @@ val_labels = pd.read_csv("input/val_labels.csv", index_col=['sample_id'])
 
 y = val_labels.values
 print(aggregated_log_loss(y, val_pred))
-#0.16814406959333844
+#0.1605
 
 import pandas as pd
 import os
